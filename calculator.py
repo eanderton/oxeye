@@ -2,18 +2,6 @@
 from simpleparse import DFAParser
 from collections import namedtuple
 
-# 10 + 11 * 20 * 30 + 11
-# 
-# 10 11 20 30 11
-# add mul mul add
-#
-# stops:        values:          ops:
-# 0             10
-# 0             10 11            add
-# 2 1           10 11 20         add mul
-# 2 1           10 11 30         add mul mul
-# 
-
 class Calculator(object):
     def __init__(self):
         class AST(object):
