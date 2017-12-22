@@ -1,6 +1,13 @@
 import re
 import collections
 
+def nop(*args, **kwargs):
+    """
+    Does nothing. Intended for do-nothing terminals in a DFA spec.
+    """
+    pass 
+
+
 class ParseError(Exception):
     def __init__(self, position, state, text, message):
         self.position = position

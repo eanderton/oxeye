@@ -21,9 +21,11 @@ class TestAdder(unittest.TestCase):
             ('(10+11)', 21.0),
             ('(1+2)+(3+4)+(5+6)', 21.0),
             ('(10+10)-(20+40)', -40.0),
+            ('3+0.14', 3.14),
+            ('-345', -345.0),
         ):
             test_result = calc(expr)
-            print expr, json.dumps(calc.get_root().debug(), indent=4)
+            print expr, json.dumps(calc.root.debug(), indent=4)
             self.assertEqual(test_result, result)
 
 
