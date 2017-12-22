@@ -3,6 +3,7 @@ import unittest
 import simpleparse
 from simpleparse import ParseError, DFAParser, pos_to_linecol
 from calculator import Calculator
+import json
 
 class TestAdder(unittest.TestCase):
     def test_parse(self):
@@ -12,12 +13,17 @@ class TestAdder(unittest.TestCase):
 
         for expr, result in (
             ('10', 10.0),
-            ('10+10', 20.0),
+            ('10+11', 21.0),
             ('10+10-20', 00.0),
-            ('10*10', 100.0),
+            ('10*11', 110.0),
             ('10+10*3', 40.0),
+            ('(10)', 10.0),
+            ('(10+11)', 21.0),
+            ('(1+2)+(3+4)+(5+6)', 21.0),
+            ('(10+10)-(20+40)', -40.0),
         ):
             test_result = calc(expr)
+            print expr, json.dumps(calc.get_root().debug(), indent=4)
             self.assertEqual(test_result, result)
 
 

@@ -2,7 +2,7 @@ import re
 import collections
 
 class ParseError(Exception):
-    def __init__(position, state, text, message):
+    def __init__(self, position, state, text, message):
         self.position = position
         self.state = state
         self.text = text
@@ -29,7 +29,7 @@ class DFAParser(object):
                     state = next_state
                     break  # leave test loop
             else:
-                raise ParseError(position=position, state=state, text=text, message='No match found')
+                raise ParseError(position, state, text, 'No match found')
 
 
 
