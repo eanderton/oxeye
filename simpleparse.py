@@ -18,7 +18,7 @@ def err(msg):
 
 
 class Token(object):
-    def __init__(self, name, value=None, line=1, column=1):
+    def __init__(self, name, value=None, line=0, column=0):
         self.name = name
         self.value = value or name
         self.line = line
@@ -29,8 +29,15 @@ class Token(object):
         other.value = value or other.name
         return other
 
-    def __eq__(self, other):
-        return self.name == other.name
+
+class TokenFactory(object):
+    @classmethod
+    def token(cls, name, value_fn=str):
+        class TokenImpl(Token):
+            def __init__(self, value, line=0, column=0):
+                Token.__init__(self, name, value_fn(value), line, column)
+        TokenImpl.__name__ = name
+        return TokenImpl
 
 
 class ParseError(Exception):
@@ -136,70 +143,6 @@ class TokenParser(Parser):
             other = tokens[0]
             return MatchResult(tok.name == other.name, 1, (other.value,))
         return impl
-
-
-class __RexParser(object):
-    def __init__(self, spec):
-        self.spec = {}
-        for state, tests in spec.iteritems():
-            compiled_tests = []
-            for rex, fn, next_state in tests:
-                compiled_tests.append((re.compile(rex), fn, next_state))
-            self.spec[state] = compiled_tests
-
-
-    def parse(self, state, text):
-        position = 0
-        while position < len(text):
-            for rex, fn, next_state in self.spec[state]:
-                result = rex.match(text[position:])
-                if result:
-                    fn(*result.groups(), **result.groupdict())
-                    position += result.end()
-                    state = next_state
-                    break  # leave test loop
-            else:
-                raise ParseError(position, state, text, 'No match found')
-
-    @classmethod
-    def err_state(cls, msg):
-        return (r'.', err(msg), None)
-
-    @classmethod
-    def next_state(cls, state):
-        return (r'(?=.)', nop, state)
-
-
-class __TokenParser(object):
-    def __init__(self, spec):
-        self.spec = {}
-        for state, tests in spec.iteritems():
-            compiled_tests = []
-            for tok, fn, next_state in tests:
-                compiled_tests.append((tok.match, fn, next_state))
-            self.spec[state] = compiled_tests
-
-    def parse(self, state, tokens):
-        position = 0
-        while position < len(tokens):
-            for cmp_fn, fn, next_state in self.spec[state]:
-                result, advance, groups, groupdict = cmp_fn(tokens[position])
-                if result:
-                    fn(*groups, **groupdict)
-                    position += advance
-                    state = next_state
-                    break  # leave test loop
-            else:
-                raise ParseError(position, state, text, 'No match found')
-
-    @classmethod
-    def err_state(cls, msg):
-        return (Token.any, err(msg), None)
-
-    @classmethod
-    def next_state(cls, state):
-        return (Token.any_lookahead, nop, state)
-
 
 
 class LineColTranslator(object):
