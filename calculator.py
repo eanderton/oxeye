@@ -1,5 +1,6 @@
 
-from simpleparse import Token, RexParser, TokenParser, nop, err
+from simpleparse import (Token, RexParser, TokenParser, nop, err, match_any, match_peek, 
+                        match_range, match_all)
 from collections import namedtuple
 
 
@@ -18,17 +19,28 @@ Tok.slash = Tok('slash')
 
 
 class Lexer(object):
-    """
+    '''
     Lexer for Calculator implementation.  Seralizes a text stream into a list of tokens.
-    """
+    '''
     def __init__(self):
         def a(tok):
             def impl():
-                self.tokens.append(tok)
+                self.column += 1
+                new_tok = tok.copy()
+                new_tok.line = self.line
+                new_tok.column = self.column
+                self.tokens.append(new_tok)
             return impl
 
         def number(value):
-            self.tokens.append(Tok.number(float(value)))
+            new_tok = Tok.number.copy(float(value))
+            new_tok.line = self.line
+            new_tok.column = self.column
+            self.tokens.append(Tok.number.copy(float(value)))
+
+        def new_line(value):
+            self.column = 1
+            self.line += 1
 
         self.dfa = RexParser({
             'goal': (
@@ -40,23 +52,26 @@ class Lexer(object):
                 (r'\+', a(Tok.plus), 'goal'),
                 (r'\*', a(Tok.star), 'goal'),
                 (r'/', a(Tok.slash), 'goal'),
-                RexParser.err_state('unexpected token'),
+                (r'\n', new_line, 'goal'),
+                (match_any, err('unexpected token'), None),
             ),
         })
         self.reset()
 
     def reset(self):
         self.tokens = []
+        self.line = 1
+        self.column = 1
 
     def parse(self, text):
-        self.dfa.parse('goal', text)
+        self.dfa.parse(text)
         return self.tokens
 
 
 class AST(object):
-    """
+    '''
     Abstract syntax tree representation for the calculator.
-    """
+    '''
     def __init__(self, left, right, op):
         self.left, self.right, self.op = left, right, op
 
@@ -71,9 +86,9 @@ class AST(object):
 
 
 class CalculatorBase(object):
-    """
+    '''
     Arithemtic expression calculator.
-    """
+    '''
 
     def _insert(self, op):
         node = AST(self.head.right, None, op)
@@ -108,10 +123,11 @@ class CalculatorBase(object):
     def _div(self, *args):
         self._insert(float.__mul__)
 
-    def reset(self, *args):
+    def reset(self):
         self.root = AST(0.0, 0.0, float.__add__)
         self.head = self.root
         self.stack = []
+        self.dfa.reset()
 
 
 class RexCalculator(CalculatorBase):
@@ -119,24 +135,24 @@ class RexCalculator(CalculatorBase):
         self.dfa = RexParser({
             'ws_expression': (
                 (r'\s+', nop, 'expression'),
-                RexParser.next_state('expression'),
+                (match_peek, nop, 'expression'),
             ),
             'expression': (
                 (r'-', self._neg, 'ws_sub_expression'),
-                RexParser.next_state('ws_sub_expression'),
+                (match_peek, nop, 'ws_sub_expression'),
             ),
             'ws_sub_expression': (
                 (r'\s+', nop, 'sub_expression'),
-                RexParser.next_state('sub_expression'),
+                (match_peek, nop, 'sub_expression'),
             ),
             'sub_expression': (
                 (r'(\d+(?:\.\d+)?)', self._arg, 'ws_operation'),
                 (r'\(', self._push_expr, 'ws_expression'),
-                RexParser.err_state('Expected number or open-paren'),
+                (match_any, err('Expected number or open-param'), None),
             ),
             'ws_operation': (
                 (r'\s+', nop, 'operation'),
-                RexParser.next_state('operation'),
+                (match_peek, nop, 'operation'),
             ),
             'operation': (
                 (r'\+', self._add, 'ws_expression'),
@@ -144,13 +160,13 @@ class RexCalculator(CalculatorBase):
                 (r'\*', self._mul, 'ws_expression'),
                 (r'/', self._div, 'ws_expression'),
                 (r'\)', self._pop_expr, 'ws_operation'),
-                RexParser.err_state('Expected numeric operation'),
+                (match_any, err('Expected numeric operation'), None),
             ),
-        })
+        }, start_state='ws_expression')
         self.reset()
 
     def parse(self, text):
-        self.dfa.parse('ws_expression', text)
+        self.dfa.parse(text)
         return self.root
 
 
@@ -159,12 +175,12 @@ class TokenCalculator(CalculatorBase):
         self.dfa = TokenParser({
             'expression': (
                 (Tok.dash, self._neg, 'sub_expression'),
-                TokenParser.next_state('sub_expression'),
+                (match_peek, nop, 'sub_expression'),
             ),
             'sub_expression': (
                 (Tok.number, self._arg, 'operation'),
                 (Tok.lparen, self._push_expr, 'expression'),
-                TokenParser.err_state('Expected number or open-paren'),
+                (match_any, err('Expected number or open-paren'), None),
             ),
             'operation': (
                 (Tok.plus, self._add, 'expression'),
@@ -172,13 +188,13 @@ class TokenCalculator(CalculatorBase):
                 (Tok.star, self._mul, 'expression'),
                 (Tok.slash, self._div, 'expression'),
                 (Tok.rparen, self._pop_expr, 'operation'),
-                TokenParser.err_state('Expected numeric operation'),
+                (match_any, err('Expected numeric operation'), None),
             ),
-        })
+        }, start_state='expression')
         self.reset()
 
     def parse(self, text):
-        self.dfa.parse('expression', Lexer().parse(text))
+        self.dfa.parse(Lexer().parse(text))
         return self.root
 
 
