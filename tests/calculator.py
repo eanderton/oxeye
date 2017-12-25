@@ -1,9 +1,9 @@
 from __future__ import unicode_literals, absolute_import
 
 import unittest
-from oxeye import ParseError
-from oxeye_examples.calculator import Tok, Lexer, RexCalculator, TokenCalculator
 from tests.helpers import *
+from oxeye.parser import ParseError
+from examples.calculator import Tok, Lexer, RexCalculator, TokenCalculator
 
 
 class TestCalculator(unittest.TestCase):
@@ -59,11 +59,3 @@ class TestCalculator(unittest.TestCase):
             self.assertEqual(calc.parser.state, 'expression')
             self.assertEqual(result, calc.parse(expr).eval())
 
-
-
-class TestLineCol(unittest.TestCase):
-    def test_translate(self):
-        text = 'hello\nworld\nfoo\nbar\nbaz\ngoat'
-        self.assertEqual(pos_to_linecol(text, 10), (2, 4))
-        self.assertEqual(pos_to_linecol(text, None), (6, 4))
-        self.assertEqual(pos_to_linecol(text, 0), (1, 1))

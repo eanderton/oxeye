@@ -13,10 +13,6 @@ class TestToken(unittest.TestCase):
         self.assertEqual(tok.line, 100)
         self.assertEqual(tok.column, 200)
 
-    def test_factory_type(self):
-        factory = Token.factory('foobar')
-        self.assertEqual(str(factory), "<class 'simpleparse.token_foobar'>")
-
     def test_factory_create(self):
         factory = Token.factory('foobar')
         tok = factory('bar', 100, 200)

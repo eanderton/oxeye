@@ -1,3 +1,5 @@
+from __future__ import unicode_literals, absolute_import
+
 import re
 import copy
 import inspect
@@ -35,6 +37,8 @@ class Token(object):
     def __str__(self):
         return 'Token({}, {}, {}, {})'.format(self.name, self.value, self.line, self.column)
 
+    __unicode__ = __str__
+
     @classmethod
     def factory(cls, name, value_fn=None):
         if value_fn:
@@ -45,7 +49,6 @@ class Token(object):
             class TokenImpl(Token):
                 def __init__(self, value, line=0, column=0):
                     Token.__init__(self, name, value, line, column)
-        TokenImpl.__name__ = 'token_' + name
         return TokenImpl
 
 
@@ -80,6 +83,8 @@ class Parser(object):
 
     def _compile(self, tok):
         if isinstance(tok, str):
+            tok = unicode(str)
+        if isinstance(tok, unicode):
             def impl(tokens):
                 return MatchResult(tokens[:len(tok)] == tok, len(tok), (tok,))
             return impl
@@ -106,7 +111,7 @@ class Parser(object):
                 else:
                     self._error(position, self.state, tokens, 'No match found', None)
         except Exception as e:
-            self._error(position, self.state, tokens, str(e), e)
+            self._error(position, self.state, tokens, unicode(e), e)
 
 
 def match_any(tokens):
@@ -115,6 +120,10 @@ def match_any(tokens):
 
 def match_peek(tokens):
     return MatchResult(True, 0, (tokens[0],))
+
+
+def match_none(tokens):
+    return MatchResult(True, 0)
 
 
 def match_range(tokens, value_range):
@@ -139,6 +148,8 @@ def match_rex(expr):
 class RexParser(Parser):
     def _compile(self, tok):
         if isinstance(tok, str):
+            tok = unicode(str)
+        if isinstance(tok, unicode):
             return match_rex(tok)
         return tok
 
@@ -152,39 +163,4 @@ class TokenParser(Parser):
             return impl
         return tok
 
-
-class LineColTranslator(object):
-    def __init__(self):
-        def next_col(value):
-            self.column += 1
-
-        def next_line(value):
-            self.column = 0
-            self.line += 1
-
-        self.dfa = Parser({
-            'goal': (
-                ('\n', next_line, 'goal'),
-                (match_any, next_col, 'goal'),
-            ),
-        })
-
-    def parse(self, text, position=None):
-        self.column = 1
-        self.line = 1
-        if position is None:
-            position = len(text)
-        self.dfa.parse(text[:position])
-        return self.line, self.column
-
-
-def pos_to_linecol(text, position=None):
-    return LineColTranslator().parse(text, position)
-
-
-class LineColErrorMixin(object):
-    def _error(self, position, state, tokens, msg, nested):
-        line, col = pos_to_linecol(tokens, position)
-        new_msg = '{} ({}, {}): Error at parse state "{}": {} ({})'.format(position, line, col, state, msg, tokens)
-        raise ParseError(position, state, tokens, new_msg, nested)
 

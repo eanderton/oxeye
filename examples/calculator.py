@@ -1,7 +1,7 @@
+from __future__ import unicode_literals, absolute_import
 
-from simpleparse import (Token, RexParser, TokenParser, nop, err, match_any, match_peek, 
+from oxeye.parser import (Token, RexParser, TokenParser, nop, err, match_any, match_peek, 
                         match_range, match_all)
-from collections import namedtuple
 
 
 class Tok(object):
