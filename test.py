@@ -110,14 +110,14 @@ class TestCalculator(unittest.TestCase):
         for expr, result in self.calc_tests:
             with test_context(expr=expr, result=result):
                 calc.reset()
-                self.assertEqual(calc.dfa.state, 'ws_expression')
+                self.assertEqual(calc.parser.state, 'ws_expression')
                 self.assertEqual(result, calc.parse(expr).eval())
 
     def test_token_parse(self):
         calc = calculator.TokenCalculator()
         for expr, result in self.calc_tests:
             calc.reset()
-            self.assertEqual(calc.dfa.state, 'expression')
+            self.assertEqual(calc.parser.state, 'expression')
             self.assertEqual(result, calc.parse(expr).eval())
 
 
