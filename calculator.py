@@ -165,7 +165,6 @@ class RexCalculator(object):
                 (match_any, err('Expected numeric operation'), None),
             ),
         }, start_state='ws_expression')
-        self.reset()
 
     def reset(self):
         self.ast.reset()
@@ -203,7 +202,6 @@ class TokenCalculator(object):
                 (match_any, err('Expected numeric operation'), None),
             ),
         }, start_state='expression')
-        self.reset()
 
     def reset(self):
         self.parser.reset()
