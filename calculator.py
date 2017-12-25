@@ -6,16 +6,16 @@ from collections import namedtuple
 
 
 class Tok(Token):
-    pass
-
-
-Tok.number = Tok('number')
-Tok.lparen = Tok('lparen')
-Tok.rparen = Tok('rparen')
-Tok.dash = Tok('dash')
-Tok.plus = Tok('plus')
-Tok.star = Tok('star')
-Tok.slash = Tok('slash')
+    '''
+    Containing namespace for token types
+    '''
+    number = Token.factory('number', float)
+    lparen = Token.factory('lparen')
+    rparen = Token.factory('rparen')
+    dash = Token.factory('dash')
+    plus = Token.factory('plus')
+    star = Token.factory('star')
+    slash = Token.factory('slash')
 
 
 class Lexer(object):
@@ -23,20 +23,14 @@ class Lexer(object):
     Lexer for Calculator implementation.  Seralizes a text stream into a list of tokens.
     '''
     def __init__(self):
-        def a(tok):
-            def impl():
-                self.column += 1
-                new_tok = tok.copy()
-                new_tok.line = self.line
-                new_tok.column = self.column
-                self.tokens.append(new_tok)
+        def tt(token_type):
+            def impl(value):
+                self.tokens.append(token_type(value, self.line, self.column))
+                self.column += len(value)
             return impl
 
-        def number(value):
-            new_tok = Tok.number.copy(float(value))
-            new_tok.line = self.line
-            new_tok.column = self.column
-            self.tokens.append(Tok.number.copy(float(value)))
+        def ws(value):
+            self.column += len(value)
 
         def new_line(value):
             self.column = 1
@@ -44,15 +38,15 @@ class Lexer(object):
 
         self.dfa = RexParser({
             'goal': (
-                (r'\s+', nop, 'goal'),  # discard all whitespace 
-                (r'(\d+(?:\.\d+)?)', number, 'goal'),
-                (r'\(', a(Tok.lparen), 'goal'),
-                (r'\)', a(Tok.rparen), 'goal'),
-                (r'-', a(Tok.dash), 'goal'),
-                (r'\+', a(Tok.plus), 'goal'),
-                (r'\*', a(Tok.star), 'goal'),
-                (r'/', a(Tok.slash), 'goal'),
-                (r'\n', new_line, 'goal'),
+                (r'(\n)', new_line, 'goal'),
+                (r'(\s+)', ws, 'goal'),
+                (r'(\d+(?:\.\d+)?)', tt(Tok.number), 'goal'),
+                (r'(\()', tt(Tok.lparen), 'goal'),
+                (r'(\))', tt(Tok.rparen), 'goal'),
+                (r'(-)', tt(Tok.dash), 'goal'),
+                (r'(\+)', tt(Tok.plus), 'goal'),
+                (r'(\*)', tt(Tok.star), 'goal'),
+                (r'(/)', tt(Tok.slash), 'goal'),
                 (match_any, err('unexpected token'), None),
             ),
         })
@@ -62,6 +56,7 @@ class Lexer(object):
         self.tokens = []
         self.line = 1
         self.column = 1
+        self.dfa.reset()
 
     def parse(self, text):
         self.dfa.parse(text)

@@ -1,5 +1,7 @@
 import re
 import copy
+import inspect
+
 
 def nop(*args, **kwargs):
     '''
@@ -24,19 +26,26 @@ class Token(object):
         self.line = line
         self.column = column
 
-    def copy(self, value=None):
-        other = copy.copy(self)
-        other.value = value or other.name
-        return other
+    def __eq__(self, other):
+        return self.name == other.name and \
+                self.value == other.value and \
+                self.line == other.line and \
+                self.column == other.column
 
+    def __str__(self):
+        return 'Token({}, {}, {}, {})'.format(self.name, self.value, self.line, self.column)
 
-class TokenFactory(object):
     @classmethod
-    def token(cls, name, value_fn=str):
-        class TokenImpl(Token):
-            def __init__(self, value, line=0, column=0):
-                Token.__init__(self, name, value_fn(value), line, column)
-        TokenImpl.__name__ = name
+    def factory(cls, name, value_fn=None):
+        if value_fn:
+            class TokenImpl(Token):
+                def __init__(self, value, line=0, column=0):
+                    Token.__init__(self, name, value_fn(value), line, column)
+        else:
+            class TokenImpl(Token):
+                def __init__(self, value, line=0, column=0):
+                    Token.__init__(self, name, value, line, column)
+        TokenImpl.__name__ = 'token_' + name
         return TokenImpl
 
 
@@ -70,11 +79,11 @@ class Parser(object):
         self.reset()
 
     def _compile(self, tok):
-        if callable(tok):
-            return tok
-        def impl(tokens):
-            return MatchResult(tokens[:len(tok)] == tok, len(tok), (tok,))
-        return impl
+        if isinstance(tok, str):
+            def impl(tokens):
+                return MatchResult(tokens[:len(tok)] == tok, len(tok), (tok,))
+            return impl
+        return tok
 
     def _error(self, position, state, tokens, msg, nested):
         raise ParseError(position, state, tokens, msg, nested)
@@ -117,32 +126,31 @@ def match_all(tokens):
     return MatchResult(true, len(tokens), (tokens,))
 
 
+def match_rex(expr):
+    rex = re.compile(expr)
+    def impl(tokens):
+        result = rex.match(tokens)
+        if result:
+            return MatchResult(True, result.end(), result.groups(), result.groupdict())
+        return MatchResult(False)
+    return impl
+
+
 class RexParser(Parser):
     def _compile(self, tok):
-        if callable(tok):
-            return tok
-        rex = re.compile(tok)
-        def impl(tokens):
-            result = rex.match(tokens)
-            if result:
-                return MatchResult(True, result.end(), result.groups(), result.groupdict())
-            return MatchResult(False)
-        return impl
-
-    def _error(self, position, state, tokens, msg, nested):
-        line, col = pos_to_linecol(tokens, position)
-        new_msg = '{} ({}, {}): Error at parse state "{}": {} ({})'.format(position, line, col, state, msg, tokens)
-        raise ParseError(position, state, tokens, new_msg, nested)
+        if isinstance(tok, str):
+            return match_rex(tok)
+        return tok
 
 
 class TokenParser(Parser):
     def _compile(self, tok):
-        if callable(tok):
-            return tok
-        def impl(tokens):
-            other = tokens[0]
-            return MatchResult(tok.name == other.name, 1, (other.value,))
-        return impl
+        if inspect.isclass(tok) and issubclass(tok, Token):
+            def impl(tokens):
+                other = tokens[0]
+                return MatchResult(isinstance(other, tok), 1, (other.value,))
+            return impl
+        return tok
 
 
 class LineColTranslator(object):
@@ -172,3 +180,11 @@ class LineColTranslator(object):
 
 def pos_to_linecol(text, position=None):
     return LineColTranslator().parse(text, position)
+
+
+class LineColErrorMixin(object):
+    def _error(self, position, state, tokens, msg, nested):
+        line, col = pos_to_linecol(tokens, position)
+        new_msg = '{} ({}, {}): Error at parse state "{}": {} ({})'.format(position, line, col, state, msg, tokens)
+        raise ParseError(position, state, tokens, new_msg, nested)
+

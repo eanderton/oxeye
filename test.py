@@ -1,19 +1,53 @@
 import unittest
 
 import simpleparse
-from simpleparse import ParseError, Parser, TokenParser, RexParser, pos_to_linecol
+from simpleparse import Token, ParseError, Parser, TokenParser, RexParser, pos_to_linecol
 import calculator
 import sys
 import json
 import contextlib
+import re
 
 @contextlib.contextmanager
 def test_context(**context_vars):
     try:
         yield
     except:
-        sys.stderr.write('CONTEXT: {}\n'.format(str(args), str(context_vars)))
+        sys.stderr.write('CONTEXT: {}\n'.format(str(context_vars)))
         raise
+
+
+class TestToken(unittest.TestCase):
+    def test_token_ctor(self):
+        tok = Token('foobar', 'baz', 100, 200)
+        self.assertEqual(tok.name, 'foobar')
+        self.assertEqual(tok.value, 'baz')
+        self.assertEqual(tok.line, 100)
+        self.assertEqual(tok.column, 200)
+
+    def test_factory_type(self):
+        factory = Token.factory('foobar')
+        self.assertEqual(str(factory), "<class 'simpleparse.token_foobar'>")
+
+    def test_factory_create(self):
+        factory = Token.factory('foobar')
+        tok = factory('bar', 100, 200)
+        self.assertEqual(tok.name, 'foobar')
+        self.assertEqual(tok.value, 'bar')
+        self.assertEqual(tok.line, 100)
+        self.assertEqual(tok.column, 200)
+
+    def test_factory_compare(self):
+        foo_factory = Token.factory('foo')
+        foo_tok = foo_factory('bar')
+        bar_factory = Token.factory('bar')
+        bar_tok = bar_factory('baz')
+
+        self.assertEqual(type(foo_tok), foo_factory)
+        self.assertEqual(type(bar_tok), bar_factory)
+
+        self.assertNotEqual(type(foo_tok), bar_factory)
+        self.assertNotEqual(type(bar_tok), foo_factory)
 
 
 class TestParser(unittest.TestCase):
@@ -34,17 +68,27 @@ class TestParser(unittest.TestCase):
 
 class TestCalculator(unittest.TestCase):
     def test_lex(self):
+        self.maxDiff = None  # show everything on failure
         Tok = calculator.Tok
         lexer = calculator.Lexer()
 
         for expr, result in (
-            (' 10 ', [Tok.number.copy(10.0)]),
-            ('-22.56 +\n*)(', [Tok.dash, Tok.number.copy(22.56), Tok.plus, Tok.star, Tok.rparen, Tok.lparen]),
+            (' 10 ', [
+                Tok.number(10.0, 1, 2)
+            ]),
+            ('-22.56 +\n*)(', [
+                Tok.dash('-', 1, 1), 
+                Tok.number('22.56', 1, 2),
+                Tok.plus('+', 1, 8), 
+                Tok.star('*', 2, 1), 
+                Tok.rparen(')', 2, 2),
+                Tok.lparen('(', 2, 3),
+            ]),
         ):
             with test_context(expr=expr, result=result):
                 lexer.reset()
                 test_result = lexer.parse(expr)
-                self.assertEqual(test_result, result)
+                self.assertEqual(map(str, test_result), map(str, result))
 
     calc_tests = (
         ('', 0.0),
