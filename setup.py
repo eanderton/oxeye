@@ -1,5 +1,7 @@
+#!/usr/bin/env python
 import setuptools
 from oxeye.version import __VERSION__
+import unittest
 
 
 setuptools.setup(name='oxeye',
@@ -10,6 +12,7 @@ setuptools.setup(name='oxeye',
                  author_email='eric.t.anderton@gmail.com',
                  url='http://github.com/eanderton/oxeye',
                  packages=['oxeye'],
+                 test_suite='tests',
                  install_requires=[],
                  license='MIT License',
                  zip_safe=False,
