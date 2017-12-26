@@ -28,12 +28,6 @@ class Token(object):
         self.line = line
         self.column = column
 
-    def __eq__(self, other):
-        return self.name == other.name and \
-                self.value == other.value and \
-                self.line == other.line and \
-                self.column == other.column
-
     def __str__(self):
         return 'Token({}, {}, {}, {})'.format(self.name, self.value, self.line, self.column)
 
@@ -82,9 +76,7 @@ class Parser(object):
         self.reset()
 
     def _compile(self, tok):
-        if isinstance(tok, str):
-            tok = unicode(str)
-        if isinstance(tok, unicode):
+        if isinstance(tok, str) or isinstance(tok, unicode):
             def impl(tokens):
                 return MatchResult(tokens[:len(tok)] == tok, len(tok), (tok,))
             return impl
@@ -101,10 +93,10 @@ class Parser(object):
         position = 0
         try:
             while position < len(tokens):
-                for match_fn, fn, next_state in self.spec[self.state]:
+                for match_fn, predicate_fn, next_state in self.spec[self.state]:
                     result = match_fn(tokens[position:])
                     if result.success:
-                        fn(*result.args, **result.kwargs)
+                        predicate_fn(*result.args, **result.kwargs)
                         position += result.advance
                         self.state = next_state
                         break  # leave test loop
@@ -122,17 +114,15 @@ def match_peek(tokens):
     return MatchResult(True, 0, (tokens[0],))
 
 
-def match_none(tokens):
-    return MatchResult(True, 0)
-
-
-def match_range(tokens, value_range):
-    tok = tokens[0]
-    return matchResult(tok in value_range, len(tok), (tok,))
+def match_range(value_range):
+    def impl(tokens):
+        tok = tokens[0]
+        return MatchResult(tok in value_range, 1, (tok,))
+    return impl
 
 
 def match_all(tokens):
-    return MatchResult(true, len(tokens), (tokens,))
+    return MatchResult(True, len(tokens), (tokens,))
 
 
 def match_rex(expr):
@@ -147,9 +137,7 @@ def match_rex(expr):
 
 class RexParser(Parser):
     def _compile(self, tok):
-        if isinstance(tok, str):
-            tok = unicode(str)
-        if isinstance(tok, unicode):
+        if isinstance(tok, unicode) or isinstance(tok, str):
             return match_rex(tok)
         return tok
 

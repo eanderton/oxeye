@@ -1,7 +1,20 @@
 #!/usr/bin/env python
+
 import setuptools
+from setuptools.command.develop import develop
+import subprocess
 from oxeye.version import __VERSION__
 import unittest
+
+class ExtDevelop(develop):
+    def install_for_development(self):
+        from distutils import log
+        develop.install_for_development(self)
+        if 'develop' in self.distribution.extras_require:
+            log.info('\nInstalling development dependencies')
+            requirements = ' '.join(self.distribution.extras_require['develop'])
+            proc = subprocess.Popen('pip install ' + requirements, shell=True)
+            proc.wait()
 
 
 setuptools.setup(name='oxeye',
@@ -14,7 +27,20 @@ setuptools.setup(name='oxeye',
                  packages=['oxeye'],
                  test_suite='tests',
                  install_requires=[],
+                 extras_require={
+                    'develop': ['coverage'],
+                 },
+                 cmdclass= {
+                    'develop': ExtDevelop, 
+                 },
                  license='MIT License',
                  zip_safe=False,
                  keywords='parser parsers dfa lexer lexers',
-                 classifiers=['Packages'])
+                 classifiers=[
+                     'Packages'
+                     'Development Status :: 4 - Beta',
+                     'Intended Audience :: Developers',
+                     'License :: OSI Approved :: MIT License',
+                     'Programming Language :: Python :: 2',
+                     'Programming Language :: Python :: 2.7',
+                 ])

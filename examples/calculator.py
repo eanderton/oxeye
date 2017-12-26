@@ -4,65 +4,6 @@ from oxeye.parser import (Token, RexParser, TokenParser, nop, err, match_any, ma
                         match_range, match_all)
 
 
-class Tok(object):
-    '''
-    Containing namespace for token types.
-    '''
-    number = Token.factory('number', float)
-    lparen = Token.factory('lparen')
-    rparen = Token.factory('rparen')
-    dash = Token.factory('dash')
-    plus = Token.factory('plus')
-    star = Token.factory('star')
-    slash = Token.factory('slash')
-
-
-class Lexer(object):
-    '''
-    Lexer for TokenCalculator.  Seralizes a text stream into a list of tokens.
-    Line and column information is gathered and attached to tokens as they are generated. 
-    '''
-    def __init__(self):
-        def tt(token_type):
-            def impl(value):
-                self.tokens.append(token_type(value, self.line, self.column))
-                self.column += len(value)
-            return impl
-
-        def ws(value):
-            self.column += len(value)
-
-        def new_line(value):
-            self.column = 1
-            self.line += 1
-
-        self.parser = RexParser({
-            'goal': (
-                (r'(\n)', new_line, 'goal'),
-                (r'(\s+)', ws, 'goal'),
-                (r'(\d+(?:\.\d+)?)', tt(Tok.number), 'goal'),
-                (r'(\()', tt(Tok.lparen), 'goal'),
-                (r'(\))', tt(Tok.rparen), 'goal'),
-                (r'(-)', tt(Tok.dash), 'goal'),
-                (r'(\+)', tt(Tok.plus), 'goal'),
-                (r'(\*)', tt(Tok.star), 'goal'),
-                (r'(/)', tt(Tok.slash), 'goal'),
-                (match_any, err('unexpected token'), None),
-            ),
-        })
-        self.reset()
-
-    def reset(self):
-        self.tokens = []
-        self.line = 1
-        self.column = 1
-        self.parser.reset()
-
-    def parse(self, text):
-        self.parser.parse(text)
-        return self.tokens
-
-
 class AST(object):
     '''
     Abstract syntax tree representation for the calculator.
@@ -173,6 +114,65 @@ class RexCalculator(object):
     def parse(self, text):
         self.parser.parse(text)
         return self.ast.root
+
+
+class Tok(object):
+    '''
+    Containing namespace for token types.
+    '''
+    number = Token.factory('number', float)
+    lparen = Token.factory('lparen')
+    rparen = Token.factory('rparen')
+    dash = Token.factory('dash')
+    plus = Token.factory('plus')
+    star = Token.factory('star')
+    slash = Token.factory('slash')
+
+
+class Lexer(object):
+    '''
+    Lexer for TokenCalculator.  Seralizes a text stream into a list of tokens.
+    Line and column information is gathered and attached to tokens as they are generated. 
+    '''
+    def __init__(self):
+        def tt(token_type):
+            def impl(value):
+                self.tokens.append(token_type(value, self.line, self.column))
+                self.column += len(value)
+            return impl
+
+        def ws(value):
+            self.column += len(value)
+
+        def new_line(value):
+            self.column = 1
+            self.line += 1
+
+        self.parser = RexParser({
+            'goal': (
+                (r'(\n)', new_line, 'goal'),
+                (r'(\s+)', ws, 'goal'),
+                (r'(\d+(?:\.\d+)?)', tt(Tok.number), 'goal'),
+                (r'(\()', tt(Tok.lparen), 'goal'),
+                (r'(\))', tt(Tok.rparen), 'goal'),
+                (r'(-)', tt(Tok.dash), 'goal'),
+                (r'(\+)', tt(Tok.plus), 'goal'),
+                (r'(\*)', tt(Tok.star), 'goal'),
+                (r'(/)', tt(Tok.slash), 'goal'),
+                (match_any, err('unexpected token'), None),
+            ),
+        })
+        self.reset()
+
+    def reset(self):
+        self.tokens = []
+        self.line = 1
+        self.column = 1
+        self.parser.reset()
+
+    def parse(self, text):
+        self.parser.parse(text)
+        return self.tokens
 
 
 class TokenCalculator(object):
