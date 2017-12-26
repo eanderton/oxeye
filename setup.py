@@ -6,6 +6,7 @@ import subprocess
 from oxeye.version import __VERSION__
 import unittest
 
+# shim to install dev depenedencies on 'setup.py develop'
 class ExtDevelop(develop):
     def install_for_development(self):
         from distutils import log

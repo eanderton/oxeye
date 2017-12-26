@@ -1,8 +1,16 @@
+# -*- coding: utf-8 -*-
+'''
+Oxeye Parser library.
+'''
+
 from __future__ import unicode_literals, absolute_import
 
 import re
 import copy
 import inspect
+from oxeye import multimethods
+
+multimethods.enable_descriptor_interface()
 
 
 def nop(*args, **kwargs):
@@ -22,6 +30,13 @@ def err(msg):
 
 
 class Token(object):
+    '''
+    Token implementation used with TokenParser.  Provides an abstraction of a lexeme
+    as parsed from a stream, with optional line and column information.
+
+    Token types (subclasses) can be created by using the `Token.factory()` method. 
+    '''
+
     def __init__(self, name, value=None, line=0, column=0):
         self.name = name
         self.value = value or name
@@ -62,10 +77,10 @@ class MatchResult(object):
         self.args = args or ()
         self.kwargs = kwargs or {}
 
-
 class Parser(object):
     def __init__(self, spec, start_state='goal'):
         self.spec = {}
+        compiler = self.__class__
         for state, tests in spec.iteritems():
             compiled_tests = []
             for tok, fn, next_state in tests:
@@ -75,12 +90,21 @@ class Parser(object):
         self.start_state = start_state
         self.reset()
 
+    @multimethods.singledispatch
     def _compile(self, tok):
-        if isinstance(tok, str) or isinstance(tok, unicode):
-            def impl(tokens):
-                return MatchResult(tokens[:len(tok)] == tok, len(tok), (tok,))
-            return impl
         return tok
+
+    @_compile.method(str)
+    def _compile_str(self, tok):
+        def impl(tokens):
+            return MatchResult(tokens[:len(tok)] == tok, len(tok), (tok,))
+        return impl
+
+    @_compile.method(unicode)
+    def _compile_unicode(self, tok):
+        def impl(tokens):
+            return MatchResult(tokens[:len(tok)] == tok, len(tok), (tok,))
+        return impl
 
     def _error(self, position, state, tokens, msg, nested):
         raise ParseError(position, state, tokens, msg, nested)
@@ -136,19 +160,48 @@ def match_rex(expr):
 
 
 class RexParser(Parser):
+    '''
+    Parser implementation that treats all string match types as regular expressions.
+    '''
+
+    @multimethods.singledispatch
     def _compile(self, tok):
-        if isinstance(tok, unicode) or isinstance(tok, str):
-            return match_rex(tok)
-        return tok
+        return Parser._compile(self, tok)
+
+    @_compile.method(str)
+    def _compile_rex(self, tok):
+        return match_rex(tok)
+
+    @_compile.method(unicode)
+    def _compile_rex(self, tok):
+        return match_rex(tok)
+
+
+def _token_type_dispatch(*args, **kwargs):
+    '''
+    Multimethod dispatch function for TokenParser.  Allows registered multimethods to 
+    match on the 'Token' type, if a subclass of that type is provided.
+    '''
+
+    tok = args[0]
+    if inspect.isclass(tok) and issubclass(tok, Token):
+        return Token
+    return type(tok)
 
 
 class TokenParser(Parser):
+    '''
+    Parser implementation for Token type streams.  Provides support for Token subclasses
+    as match expressions in the parser specification.
+    '''
+
+    @multimethods.multimethod(_token_type_dispatch)
     def _compile(self, tok):
-        if inspect.isclass(tok) and issubclass(tok, Token):
-            def impl(tokens):
-                other = tokens[0]
-                return MatchResult(isinstance(other, tok), 1, (other.value,))
-            return impl
-        return tok
+        return Parser._compile(self, tok)
 
-
+    @_compile.method(Token)
+    def _compile_token(self, tok):
+        def impl(tokens):
+            other = tokens[0]
+            return MatchResult(isinstance(other, tok), 1, (other.value,))
+        return impl
