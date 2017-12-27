@@ -75,8 +75,8 @@ class TestParserError(unittest.TestCase):
 
         p = Parser({
             'goal': (
-                ('foo', throw_fn, 'goal'),
-                ('baz', err('failure'), 'goal'),
+                (match_str('foo'), throw_fn, 'goal'),
+                (match_str('baz'), err('failure'), 'goal'),
             )
         })
 

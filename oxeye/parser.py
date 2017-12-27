@@ -15,14 +15,14 @@ multimethods.enable_descriptor_interface()
 
 def nop(*args, **kwargs):
     '''
-    Terminal function that does nothing. Intended for do-nothing terminals in a DFA spec.
+    Predicate function that does nothing. Intended for do-nothing terminals in a DFA spec.
     '''
     pass 
 
 
 def err(msg):
     '''
-    Terminal function that emits an exception for `msg`.
+    Predicate function that emits an exception for `msg`.
     '''
     def impl(*args, **kwargs):
         raise Exception(msg)
@@ -62,6 +62,11 @@ class Token(object):
 
 
 class ParseError(Exception):
+    '''
+    Base error type for parse related errors.  May optionally include a nested
+    exception if another exception was the cause for the error.
+    '''
+
     def __init__(self, position, state, text, message, nested_exception=None):
         self.position = position
         self.state = state
@@ -71,6 +76,11 @@ class ParseError(Exception):
 
 
 class MatchResult(object):
+    '''
+    Represents a parser match for one or more input tokens. Used by match functions
+    during a parser pass.
+    '''
+
     def __init__(self, success, advance=1, args=None, kwargs=None):
         self.success = success
         self.advance = advance
@@ -78,6 +88,12 @@ class MatchResult(object):
         self.kwargs = kwargs or {}
 
 class Parser(object):
+    '''
+    Core parser class.  Implements a token based parser based on a provided parser
+    specification (`spec`).  The parser operates on an input set of tokens, that 
+    may be any indexable type, including `str` or `unicode`.
+    '''
+
     def __init__(self, spec, start_state='goal'):
         self.spec = {}
         compiler = self.__class__
@@ -92,18 +108,14 @@ class Parser(object):
 
     @multimethods.singledispatch
     def _compile(self, tok):
+        # TODO: raise if not callable
         return tok
 
     @_compile.method(str)
+    @_compile.method(unicode)
     def _compile_str(self, tok):
         def impl(tokens):
-            return MatchResult(tokens[:len(tok)] == tok, len(tok), (tok,))
-        return impl
-
-    @_compile.method(unicode)
-    def _compile_unicode(self, tok):
-        def impl(tokens):
-            return MatchResult(tokens[:len(tok)] == tok, len(tok), (tok,))
+            return MatchResult(tokens[0] == tok, 1, (tok,))
         return impl
 
     def _error(self, position, state, tokens, msg, nested):
@@ -131,6 +143,9 @@ class Parser(object):
 
 
 def match_any(tokens):
+    '''
+    Matches 
+    '''
     return MatchResult(True, 1, (tokens[0],))
 
 
@@ -147,6 +162,13 @@ def match_range(value_range):
 
 def match_all(tokens):
     return MatchResult(True, len(tokens), (tokens,))
+
+
+def match_str(tok):
+    tok_len = len(tok)
+    def impl(tokens):
+        return MatchResult(tokens[:tok_len] == tok, tok_len, (tok,))
+    return impl
 
 
 def match_rex(expr):
@@ -169,9 +191,6 @@ class RexParser(Parser):
         return Parser._compile(self, tok)
 
     @_compile.method(str)
-    def _compile_rex(self, tok):
-        return match_rex(tok)
-
     @_compile.method(unicode)
     def _compile_rex(self, tok):
         return match_rex(tok)

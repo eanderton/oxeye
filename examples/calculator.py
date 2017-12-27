@@ -59,7 +59,7 @@ class ASTManager(object):
         self.insert(float.__mul__)
 
     def div(self, *args):
-        self.insert(float.__mul__)
+        self.insert(float.__div__)
 
     def reset(self):
         self.root = AST(0.0, 0.0, float.__add__)
