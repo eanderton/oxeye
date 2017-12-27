@@ -13,6 +13,27 @@ from oxeye import multimethods
 multimethods.enable_descriptor_interface()
 
 
+def _multimethod_extend_patch(self, dispatch_func=None):
+    '''
+    Creates a new multimethod that extends this multimethod, by chaining
+    to this multimethod on default.  
+    
+    Can be called using an optional dispatch function `dispatch_func` for 
+    the newly created multimethod.
+    '''
+
+    def default_impl(*args, **kwargs):
+        return self.__call__(*args, **kwargs)
+    dispatch_func = dispatch_func or self.dispatchfn
+    pass_self = self.pass_self
+    mm = multimethods.MultiMethod(self.__name__, dispatch_func, pass_self)
+    mm.add_method(multimethods.Default, default_impl)
+    return mm
+
+
+multimethods.MultiMethod.extend = _multimethod_extend_patch
+
+
 def nop(*args, **kwargs):
     '''
     Predicate function that does nothing. Intended for do-nothing terminals in a DFA spec.
@@ -99,21 +120,22 @@ class Parser(object):
         compiler = self.__class__
         for state, tests in spec.iteritems():
             compiled_tests = []
-            for tok, fn, next_state in tests:
-                compiled_tests.append((self._compile(tok), fn, next_state))
+            for match_tok, predicate_fn, next_state in tests:
+                compiled_tests.append((self._compile_match(match_tok), predicate_fn, next_state))
             self.spec[state] = compiled_tests
 
         self.start_state = start_state
         self.reset()
 
     @multimethods.singledispatch
-    def _compile(self, tok):
-        # TODO: raise if not callable
+    def _compile_match(self, tok):
+        if not callable(tok):
+            raise Exception('Error during compilation: "{}" is not callable.'.format(tok))
         return tok
 
-    @_compile.method(str)
-    @_compile.method(unicode)
-    def _compile_str(self, tok):
+    @_compile_match.method(str)
+    @_compile_match.method(unicode)
+    def _compile_match_str(self, tok):
         def impl(tokens):
             return MatchResult(tokens[0] == tok, 1, (tok,))
         return impl
@@ -186,13 +208,11 @@ class RexParser(Parser):
     Parser implementation that treats all string match types as regular expressions.
     '''
 
-    @multimethods.singledispatch
-    def _compile(self, tok):
-        return Parser._compile(self, tok)
+    _compile_match = Parser._compile_match.extend()
 
-    @_compile.method(str)
-    @_compile.method(unicode)
-    def _compile_rex(self, tok):
+    @_compile_match.method(str)
+    @_compile_match.method(unicode)
+    def _compile_match_rex(self, tok):
         return match_rex(tok)
 
 
@@ -214,12 +234,10 @@ class TokenParser(Parser):
     as match expressions in the parser specification.
     '''
 
-    @multimethods.multimethod(_token_type_dispatch)
-    def _compile(self, tok):
-        return Parser._compile(self, tok)
+    _compile_match = Parser._compile_match.extend(_token_type_dispatch)
 
-    @_compile.method(Token)
-    def _compile_token(self, tok):
+    @_compile_match.method(Token)
+    def _compile_match_token(self, tok):
         def impl(tokens):
             other = tokens[0]
             return MatchResult(isinstance(other, tok), 1, (other.value,))
