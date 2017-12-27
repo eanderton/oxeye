@@ -117,20 +117,36 @@ class Parser(object):
 
     def __init__(self, spec, start_state='goal'):
         self.spec = {}
-        compiler = self.__class__
         for state, tests in spec.iteritems():
-            compiled_tests = []
-            for match_tok, predicate_fn, next_state in tests:
-                compiled_tests.append((self._compile_match(match_tok), predicate_fn, next_state))
-            self.spec[state] = compiled_tests
-
+            self.spec[state] = map(self._compile_rule, tests)
         self.start_state = start_state
         self.reset()
+
+
+    @multimethods.singledispatch
+    def _compile_rule(self, rule):
+        raise Exception('Error during compilation: no registered method to compile "{}"'.format(rule))
+
+    @_compile_rule.method(tuple)
+    def _compile_tuple_rule(self, rule):
+        match_tok, predicate_fn, next_state = rule
+        match_fn = self._compile_match(match_tok)
+        def impl(tokens):
+            result = match_fn(tokens)
+            if not result.success:
+                return False, 0, None
+            predicate_fn(*result.args, **result.kwargs)
+            return True, result.advance, next_state
+        return impl
+
+    #@_compile_rule.method(dict)
+    #def _compile_dict_rule(self, rule):
+    #    pass
 
     @multimethods.singledispatch
     def _compile_match(self, tok):
         if not callable(tok):
-            raise Exception('Error during compilation: "{}" is not callable.'.format(tok))
+            raise Exception('Error during compilation: "{}" is not callable'.format(tok))
         return tok
 
     @_compile_match.method(str)
@@ -151,13 +167,12 @@ class Parser(object):
         position = 0
         try:
             while position < len(tokens):
-                for match_fn, predicate_fn, next_state in self.spec[self.state]:
-                    result = match_fn(tokens[position:])
-                    if result.success:
-                        predicate_fn(*result.args, **result.kwargs)
-                        position += result.advance
+                for test_fn in self.spec[self.state]:
+                    success, advance, next_state = test_fn(tokens[position:])
+                    if success:
+                        position += advance
                         self.state = next_state
-                        break  # leave test loop
+                        break
                 else:
                     self._error(position, self.state, tokens, 'No match found', None)
         except Exception as e:
