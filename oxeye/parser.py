@@ -96,26 +96,17 @@ class ParseError(Exception):
         Exception.__init__(self, message)
 
 
-class MatchResult(object):
-    '''
-    Represents a parser match for one or more input tokens. Used by match functions
-    during a parser pass.
-    '''
-
-    def __init__(self, success, advance=1, args=None, kwargs=None):
-        self.success = success
-        self.advance = advance
-        self.args = args or ()
-        self.kwargs = kwargs or {}
-
 def failed_match():
     return (False, 0, (), {})
 
-def passed_match(advance, args=(), kwargs={})
+
+def passed_match(advance, args=(), kwargs={}):
     return (True, advance, args, kwargs)
+
 
 def failed_rule():
     return (False, 0, None)
+
 
 def passed_rule(advance, next_state):
     return (True, advance, next_state)
@@ -145,11 +136,11 @@ class Parser(object):
         match_tok, predicate_fn, next_state = rule
         match_fn = self._compile_match(match_tok)
         def impl(tokens):
-            result = match_fn(tokens)
-            if not result.success:
-                return False, 0, None
-            predicate_fn(*result.args, **result.kwargs)
-            return True, result.advance, next_state
+            match_success, advance, predicate_args, predicate_kwargs = match_fn(tokens)
+            if match_success:
+                predicate_fn(*predicate_args, **predicate_kwargs)
+                return passed_rule(advance, next_state)
+            return failed_rule()
         return impl
 
     #@_compile_rule.method(dict)
@@ -166,7 +157,9 @@ class Parser(object):
     @_compile_match.method(unicode)
     def _compile_match_str(self, tok):
         def impl(tokens):
-            return MatchResult(tokens[0] == tok, 1, (tok,))
+            if tokens[0] == tok:
+                return passed_match(1, (tok,))
+            return failed_match()
         return impl
 
     def _error(self, position, state, tokens, msg, nested):
@@ -196,28 +189,32 @@ def match_any(tokens):
     '''
     Matches 
     '''
-    return MatchResult(True, 1, (tokens[0],))
+    return passed_match(1, (tokens[0],))
 
 
 def match_peek(tokens):
-    return MatchResult(True, 0, (tokens[0],))
+    return passed_match(0, (tokens[0],))
 
 
 def match_range(value_range):
     def impl(tokens):
         tok = tokens[0]
-        return MatchResult(tok in value_range, 1, (tok,))
+        if tok in value_range:
+            return passed_match(1, (tok,))
+        return failed_match()
     return impl
 
 
 def match_all(tokens):
-    return MatchResult(True, len(tokens), (tokens,))
+    return passed_match(len(tokens), (tokens,))
 
 
 def match_str(tok):
     tok_len = len(tok)
     def impl(tokens):
-        return MatchResult(tokens[:tok_len] == tok, tok_len, (tok,))
+        if tokens[:tok_len] == tok:
+            return passed_match(tok_len, (tok,))
+        return failed_match()
     return impl
 
 
@@ -226,8 +223,8 @@ def match_rex(expr):
     def impl(tokens):
         result = rex.match(tokens)
         if result:
-            return MatchResult(True, result.end(), result.groups(), result.groupdict())
-        return MatchResult(False)
+            return passed_match(result.end(), result.groups(), result.groupdict())
+        return failed_match()
     return impl
 
 
@@ -268,5 +265,7 @@ class TokenParser(Parser):
     def _compile_match_token(self, tok):
         def impl(tokens):
             other = tokens[0]
-            return MatchResult(isinstance(other, tok), 1, (other.value,))
+            if isinstance(other, tok):
+                return passed_match(1, (other.value,))
+            return failed_match()
         return impl
