@@ -108,6 +108,19 @@ class MatchResult(object):
         self.args = args or ()
         self.kwargs = kwargs or {}
 
+def failed_match():
+    return (False, 0, (), {})
+
+def passed_match(advance, args=(), kwargs={})
+    return (True, advance, args, kwargs)
+
+def failed_rule():
+    return (False, 0, None)
+
+def passed_rule(advance, next_state):
+    return (True, advance, next_state)
+
+
 class Parser(object):
     '''
     Core parser class.  Implements a token based parser based on a provided parser
