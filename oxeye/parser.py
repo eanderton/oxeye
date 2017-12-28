@@ -9,49 +9,12 @@ from __future__ import unicode_literals, absolute_import
 import re
 import copy
 import inspect
-from oxeye import multimethods
-
-multimethods.enable_descriptor_interface()
-
-
-def _multimethod_extend_patch(self, dispatch_func=None):
-    '''
-    Creates a new multimethod that extends this multimethod, by dispatching
-    to this multimethod on default.  
-    
-    Can be called using an optional dispatch function `dispatch_func` for 
-    the newly created multimethod.
-    '''
-
-    mm = multimethods.MultiMethod(self.__name__, 
-                                  dispatch_func or self.dispatchfn,
-                                  self.pass_self)
-    mm.add_method(multimethods.Default, lambda *a, **kw: self(*a, **kw))
-    return mm
+from oxeye.multimethods import enable_descriptor_interface, singledispatch
+from oxeye.multimethods_ext import Callable, patch_multimethod_extend
 
 
-multimethods.MultiMethod.extend = _multimethod_extend_patch
-
-
-class CallableType(object):
-    '''
-    Callable psuedo-type for multimethods.  The `Callable` instance may be
-    used where type dispatch is desired to match on all callable types: classes,
-    lambdas, and functions.
-    '''
-    def __repr__(self):
-        return '<CallableType>'
-
-
-Callable = CallableType()
-
-
-@multimethods.is_a.method((object, CallableType))
-def _is_a_subclass(x, y):
-    '''
-    Multimethod that allows `Callable` to be used on type dispatch with multimethods.
-    '''
-    return callable(x)
+enable_descriptor_interface()
+patch_multimethod_extend()
 
 
 def nop(*args, **kwargs):
@@ -191,10 +154,10 @@ class Parser(object):
         may be specified if 'goal' isn't a valid state in the provided spec.
 
         The parser specification is compiled into a series of closure functions by
-        way of type-matching multimethods.  Tuples, Dicts, and callables are valid 
+        way of type-matching   Tuples, Dicts, and callables are valid 
         rule types, each with their own special use cases and idioms.  The set of 
         supported dispatch types may be expanded by augmenting or extending these
-        multimethods.  See the module documentation for more information on rules.
+          See the module documentation for more information on rules.
         '''
         self.spec = {}
         self.start_state = start_state
@@ -207,7 +170,7 @@ class Parser(object):
         self.reset()
 
 
-    @multimethods.singledispatch
+    @singledispatch
     def _compile_rule(self, rule):
         '''
         Default dispatch function for compiling rules.  Raises an exception as
@@ -261,7 +224,7 @@ class Parser(object):
             return failed_rule()
         return impl
 
-    @multimethods.singledispatch
+    @singledispatch
     def _compile_match(self, tok):
         '''
         Default function for compiling match functions.  Raises an exception
