@@ -33,6 +33,27 @@ def _multimethod_extend_patch(self, dispatch_func=None):
 multimethods.MultiMethod.extend = _multimethod_extend_patch
 
 
+class CallableType(object):
+    '''
+    Callable psuedo-type for multimethods.  The `Callable` instance may be
+    used where type dispatch is desired to match on all callable types: classes,
+    lambdas, and functions.
+    '''
+    def __repr__(self):
+        return '<CallableType>'
+
+
+Callable = CallableType()
+
+
+@multimethods.is_a.method((object, CallableType))
+def _is_a_subclass(x, y):
+    '''
+    Multimethod that allows `Callable` to be used on type dispatch with multimethods.
+    '''
+    return callable(x)
+
+
 def nop(*args, **kwargs):
     '''
     Predicate function that does nothing. Intended for do-nothing terminals in a DFA spec.
@@ -160,9 +181,21 @@ class Parser(object):
     Core parser class.  Implements a token based parser based on a provided parser
     specification (`spec`).  The parser operates on an input set of tokens, that 
     may be any indexable type, including `str` or `unicode`.
+
     '''
 
     def __init__(self, spec, start_state='goal'):
+        '''
+        Parser constructor.  Builds a parser around the `spec` state machine that 
+        is a dictionary of state to rule-set mappings.  An optional `start_state`
+        may be specified if 'goal' isn't a valid state in the provided spec.
+
+        The parser specification is compiled into a series of closure functions by
+        way of type-matching multimethods.  Tuples, Dicts, and callables are valid 
+        rule types, each with their own special use cases and idioms.  The set of 
+        supported dispatch types may be expanded by augmenting or extending these
+        multimethods.  See the module documentation for more information on rules.
+        '''
         self.spec = {}
         self.start_state = start_state
         try:
@@ -177,13 +210,20 @@ class Parser(object):
     @multimethods.singledispatch
     def _compile_rule(self, rule):
         '''
-        Default dispatch function for compiling rules.  The rule itself is returned
-        if it is a callable, otherwise an error is raised.
+        Default dispatch function for compiling rules.  Raises an exception as
+        no other dispatchable types were matched.
         '''
 
-        if not callable(rule):
-            raise CompileError('No registered method to compile rule', rule)
+        raise CompileError('No registered method to compile rule', rule)
+
+    @_compile_rule.method(Callable)
+    def _compile_callable_rule(self, rule):
+        '''
+        compiler dispatch function for callable rules.  Callables are allowed
+        to simply pass-through to the compiled output.
+        '''
         return rule
+        
 
     @_compile_rule.method(list)
     @_compile_rule.method(tuple)
@@ -224,13 +264,17 @@ class Parser(object):
     @multimethods.singledispatch
     def _compile_match(self, tok):
         '''
-        Default function for compiling match functions.  Returns the provided
-        match token if it is a callable object, and raises an exception if
-        not.
+        Default function for compiling match functions.  Raises an exception
+        as no other dispatchable types were matched.
         '''
 
-        if not callable(tok):
-            raise CompileError('Match expression is not callable', tok)
+        raise CompileError('Match expression is not callable', tok)
+    
+    @_compile_match.method(Callable)
+    def _compile_match_callable(self, tok):
+        '''
+        Returns the provided match callable as a match function.
+        '''
         return tok
 
     @_compile_match.method(str)
