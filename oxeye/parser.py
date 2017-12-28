@@ -143,9 +143,16 @@ class Parser(object):
             return failed_rule()
         return impl
 
-    #@_compile_rule.method(dict)
-    #def _compile_dict_rule(self, rule):
-    #    pass
+    @_compile_rule.method(dict)
+    def _compile_dict_rule(self, rule):
+        def impl(tokens):
+            tok = tokens[0]
+            if tok in rule:
+                predicate_fn, next_state = rule[tok]
+                predicate_fn(tok)
+                return passed_rule(1, next_state)
+            return failed_rule()
+        return impl
 
     @multimethods.singledispatch
     def _compile_match(self, tok):

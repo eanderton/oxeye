@@ -1,7 +1,8 @@
 from __future__ import unicode_literals, absolute_import
 
-from oxeye.parser import (Token, RexParser, TokenParser, nop, err, match_any, match_peek, 
-                        match_range, match_all)
+from oxeye.parser import (Token, Parser, RexParser, TokenParser, 
+                          nop, err, 
+                          match_any, match_peek, match_rex, match_range, match_all)
 
 
 class AST(object):
@@ -148,17 +149,22 @@ class Lexer(object):
             self.column = 1
             self.line += 1
 
-        self.parser = RexParser({
+        self.parser = Parser({
             'goal': (
-                (r'(\n)', new_line, 'goal'),
-                (r'(\s+)', ws, 'goal'),
-                (r'(\d+(?:\.\d+)?)', tt(Tok.number), 'goal'),
-                (r'(\()', tt(Tok.lparen), 'goal'),
-                (r'(\))', tt(Tok.rparen), 'goal'),
-                (r'(-)', tt(Tok.dash), 'goal'),
-                (r'(\+)', tt(Tok.plus), 'goal'),
-                (r'(\*)', tt(Tok.star), 'goal'),
-                (r'(/)', tt(Tok.slash), 'goal'),
+                {
+                    '(': (tt(Tok.lparen), 'goal'),
+                    ')': (tt(Tok.rparen), 'goal'),
+                    '-': (tt(Tok.dash), 'goal'),
+                    '+': (tt(Tok.plus), 'goal'),
+                    '*': (tt(Tok.star), 'goal'),
+                    '/': (tt(Tok.slash), 'goal'),
+                    ' ': (ws, 'goal'),
+                    '\r': (ws, 'goal'),
+                    '\t': (ws, 'goal'),
+                    '\v': (ws, 'goal'),
+                    '\n': (new_line, 'goal'),
+                },
+                (match_rex(r'(\d+(?:\.\d+)?)'), tt(Tok.number), 'goal'),
                 (match_any, err('unexpected token'), None),
             ),
         })
