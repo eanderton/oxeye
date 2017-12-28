@@ -2,7 +2,7 @@ from __future__ import unicode_literals, absolute_import
 
 from oxeye.parser import (Token, Parser, RexParser, TokenParser, 
                           nop, err, 
-                          match_any, match_peek, match_rex, match_range, match_all)
+                          match_any, match_peek, match_rex, match_all)
 
 
 class AST(object):

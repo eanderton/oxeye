@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 '''
-Oxeye Parser library.
+Oxeye Parser library.  Provides utility classes and functions for constructing
+discrete state machines for parsing text or a token stream.
 '''
 
 from __future__ import unicode_literals, absolute_import
@@ -15,19 +16,17 @@ multimethods.enable_descriptor_interface()
 
 def _multimethod_extend_patch(self, dispatch_func=None):
     '''
-    Creates a new multimethod that extends this multimethod, by chaining
+    Creates a new multimethod that extends this multimethod, by dispatching
     to this multimethod on default.  
     
     Can be called using an optional dispatch function `dispatch_func` for 
     the newly created multimethod.
     '''
 
-    def default_impl(*args, **kwargs):
-        return self.__call__(*args, **kwargs)
-    dispatch_func = dispatch_func or self.dispatchfn
-    pass_self = self.pass_self
-    mm = multimethods.MultiMethod(self.__name__, dispatch_func, pass_self)
-    mm.add_method(multimethods.Default, default_impl)
+    mm = multimethods.MultiMethod(self.__name__, 
+                                  dispatch_func or self.dispatchfn,
+                                  self.pass_self)
+    mm.add_method(multimethods.Default, lambda *a, **kw: self(*a, **kw))
     return mm
 
 
@@ -59,18 +58,32 @@ class Token(object):
     '''
 
     def __init__(self, name, value=None, line=0, column=0):
+        '''
+        Token constructor.  Specifies a token instance with a given name, value, and
+        optional line and column information.
+        '''
+
         self.name = name
         self.value = value or name
         self.line = line
         self.column = column
 
     def __str__(self):
+        '''
+        String representation of the token.  Used for debugging.
+        '''
+
         return 'Token({}, {}, {}, {})'.format(self.name, self.value, self.line, self.column)
 
     __unicode__ = __str__
 
     @classmethod
     def factory(cls, name, value_fn=None):
+        '''
+        Factory method for new Token types.  Tokens must have a name to help distinguish
+        them during debugging, and may have an optional value filter function `value_fn`.
+        '''
+
         if value_fn:
             class TokenImpl(Token):
                 def __init__(self, value, line=0, column=0):
@@ -96,19 +109,49 @@ class ParseError(Exception):
         Exception.__init__(self, message)
 
 
+class CompileError(Exception):
+    '''
+    Error type for compilation-based errors.
+    '''
+
+    def __init__(self, subject=None, state=None):
+        self.subject = subject
+        self.state = state
+
+
 def failed_match():
+    '''
+    Returns a match tuple for a failed result.
+    '''
+
     return (False, 0, (), {})
 
 
 def passed_match(advance, args=(), kwargs={}):
+    '''
+    Returns a match tuple for a successful result.  The args and kwargs are
+    intended for forwarding to an associated predicate function.
+    '''
+
     return (True, advance, args, kwargs)
 
 
 def failed_rule():
+    '''
+    Returns a rule tuple for a failed rule match.
+    '''
+
     return (False, 0, None)
 
 
 def passed_rule(advance, next_state):
+    '''
+    Returns a rule tuple for a successful rule match.  The advance argument
+    instructs the parser to advance by as many tokens, as though they were
+    consumed by the operation.  The next_state insructs the parser to
+    match the next token on the given state.
+    '''
+
     return (True, advance, next_state)
 
 
@@ -121,18 +164,36 @@ class Parser(object):
 
     def __init__(self, spec, start_state='goal'):
         self.spec = {}
-        for state, tests in spec.iteritems():
-            self.spec[state] = map(self._compile_rule, tests)
         self.start_state = start_state
+        try:
+            for state, tests in spec.iteritems():
+                self.spec[state] = map(self._compile_rule, tests)
+        except CompileError as e:
+            e.state = state
+            raise
         self.reset()
 
 
     @multimethods.singledispatch
     def _compile_rule(self, rule):
-        raise Exception('Error during compilation: no registered method to compile "{}"'.format(rule))
+        '''
+        Default dispatch function for compiling rules.  The rule itself is returned
+        if it is a callable, otherwise an error is raised.
+        '''
 
+        if not callable(rule):
+            raise CompileError('No registered method to compile rule', rule)
+        return rule
+
+    @_compile_rule.method(list)
     @_compile_rule.method(tuple)
     def _compile_tuple_rule(self, rule):
+        '''
+        Compiler dispatch function for tuple-based rules.  Returns a function
+        that processes zero or more tokens, and returns a passed/failed rule 
+        tuple as a result.
+        '''
+
         match_tok, predicate_fn, next_state = rule
         match_fn = self._compile_match(match_tok)
         def impl(tokens):
@@ -145,6 +206,12 @@ class Parser(object):
 
     @_compile_rule.method(dict)
     def _compile_dict_rule(self, rule):
+        '''
+        Compiler dispatch function for dict-based rules.  Returns a function
+        that processes zero or more tokens, and returns a passed/failed rule 
+        tuple as a result.
+        '''
+
         def impl(tokens):
             tok = tokens[0]
             if tok in rule:
@@ -156,13 +223,23 @@ class Parser(object):
 
     @multimethods.singledispatch
     def _compile_match(self, tok):
+        '''
+        Default function for compiling match functions.  Returns the provided
+        match token if it is a callable object, and raises an exception if
+        not.
+        '''
+
         if not callable(tok):
-            raise Exception('Error during compilation: "{}" is not callable'.format(tok))
+            raise CompileError('Match expression is not callable', tok)
         return tok
 
     @_compile_match.method(str)
     @_compile_match.method(unicode)
     def _compile_match_str(self, tok):
+        '''
+        Returns a match function for string and unicode values.
+        '''
+
         def impl(tokens):
             if tokens[0] == tok:
                 return passed_match(1, (tok,))
@@ -170,12 +247,30 @@ class Parser(object):
         return impl
 
     def _error(self, position, state, tokens, msg, nested):
+        '''
+        Raises an error.  This method is used by `parse()`, and should be
+        overridden if different error generation behavior is desired.
+        '''
+
         raise ParseError(position, state, tokens, msg, nested)
 
     def reset(self):
+        '''
+        Clears any internal state, resetting the parser back to the initial
+        parse state.
+        '''
+
         self.state = self.start_state
 
     def parse(self, tokens, state_override=None):
+        '''
+        Parses over tokens, using the curent state machine configuration.  The
+        parser will attempt to match all tokens in `tokens`, running to exhasution.
+        Failure to exhaust all tokens will result in an error.
+
+        This may be called using an alternate starting state, `state_override`,
+        than the one configured in the constructor.  
+        '''
         self.state = state_override or self.state
         position = 0
         try:
@@ -194,29 +289,50 @@ class Parser(object):
 
 def match_any(tokens):
     '''
-    Matches 
+    Matches any single token.
     '''
+
     return passed_match(1, (tokens[0],))
 
 
 def match_peek(tokens):
+    '''
+    Matches any single token, but does not advance the parser.  May be used in
+    conjunction with `nop` to move the parser to a different state.
+    '''
+
     return passed_match(0, (tokens[0],))
 
 
-def match_range(value_range):
+def match_set(value_set):
+    '''
+    Matches if a token matches any one value in `value_set`, by using the `in` 
+    operator.  The `value_set` may be any object that implements `__in__`.
+    '''
+
     def impl(tokens):
         tok = tokens[0]
-        if tok in value_range:
+        if tok in value_set:
             return passed_match(1, (tok,))
         return failed_match()
     return impl
 
 
 def match_all(tokens):
+    '''
+    Matches against all remaining input tokens and passes them to the predicate.
+    May also be used in conjunction with `nop` to exhasut the parser.
+    '''
+
     return passed_match(len(tokens), (tokens,))
 
 
 def match_str(tok):
+    '''
+    Match function that matches a string against multiple successive character
+    tokens.
+    '''
+
     tok_len = len(tok)
     def impl(tokens):
         if tokens[:tok_len] == tok:
@@ -226,6 +342,12 @@ def match_str(tok):
 
 
 def match_rex(expr):
+    '''
+    Match function that matches a regular expression against multiple character
+    tokens.  The resulting groups and groupdict are passed to the predicate
+    as *args and **kwargs, respectively, if there's a match.
+    '''
+
     rex = re.compile(expr)
     def impl(tokens):
         result = rex.match(tokens)

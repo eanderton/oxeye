@@ -124,13 +124,13 @@ class TestMatchFunction(unittest.TestCase):
                 (match_peek, peek_pred, 'all'),
             ),
             'range_digit': (
-                (match_range(map(str, range(0, 9))), range_pred, 'all'),
+                (match_set(map(str, range(0, 9))), range_pred, 'all'),
             ),
             'range_char': (
-                (match_range(['f', 'b']), range_pred, 'all'),
+                (match_set(['f', 'b']), range_pred, 'all'),
             ),
             'range_str': (
-                (match_range(['foo', 'bar']), range_pred, 'all'),
+                (match_set(['foo', 'bar']), range_pred, 'all'),
             ),
             'all': (
                 (match_all, all_pred, None),
@@ -151,17 +151,17 @@ class TestMatchFunction(unittest.TestCase):
         self.assertEquals(self.peek_value, 'f')
         self.assertEquals(self.all_value, 'foobar')
 
-    def test_match_range_digit(self):
+    def test_match_set_digit(self):
         self.parser.parse('1234', 'range_digit')
         self.assertEquals(self.range_value, '1')
         self.assertEquals(self.all_value, '234')
         
-    def test_match_range_char(self):
+    def test_match_set_char(self):
         self.parser.parse('foobar', 'range_char')
         self.assertEquals(self.range_value, 'f')
         self.assertEquals(self.all_value, 'oobar')
 
-    def test_match_range_str(self):
+    def test_match_set_str(self):
         self.parser.parse(['foo', 'bar'], 'range_str')
         self.assertEquals(self.range_value, 'foo')
         self.assertEquals(self.all_value, ['bar'])
