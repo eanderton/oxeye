@@ -347,6 +347,13 @@ def match_str(tok):
         return failed_match()
     return impl
 
+def match_multi(*values):
+    values_len = len(values)
+    def impl(tokens):
+        if tokens[:values_len] == values:
+            return passed_match(values_len, (tokens[:values_len],))
+        return failed_match()
+    return impl
 
 def match_rex(expr):
     '''
@@ -396,6 +403,15 @@ class TokenParser(Parser):
     '''
 
     _compile_match = Parser._compile_match.extend(_token_type_dispatch)
+
+    def _error(self, position, state, tokens, msg, nested):
+        '''
+        Override for `Parser._error()`. Adds line and column information to error message.
+        '''
+        
+        tok = tokens[position]
+        msg = '({}, {}) {}'.format(tok.line, tok.column, msg) 
+        raise ParseError(position, state, tokens, msg, nested)
 
     @_compile_match.method(Token)
     def _compile_match_token(self, tok):
