@@ -21,17 +21,49 @@ class TestToken(unittest.TestCase):
         self.assertEqual(tok.line, 100)
         self.assertEqual(tok.column, 200)
 
-    def test_factory_compare(self):
-        foo_factory = Token.factory('foo')
+    def test_factory_create(self):
+        foo_factory = Token('foo')
         foo_tok = foo_factory('bar')
-        bar_factory = Token.factory('bar')
+        bar_factory = Token('bar')
         bar_tok = bar_factory('baz')
 
-        self.assertEqual(type(foo_tok), foo_factory)
-        self.assertEqual(type(bar_tok), bar_factory)
+        self.assertEqual(foo_tok.name, foo_factory.name)
+        self.assertEqual(bar_tok.name, bar_factory.name)
 
-        self.assertNotEqual(type(foo_tok), bar_factory)
-        self.assertNotEqual(type(bar_tok), foo_factory)
+        self.assertNotEqual(foo_tok.name, bar_factory.name)
+        self.assertNotEqual(bar_tok.name, foo_factory.name)
+
+    def test_token_hash(self):
+        a = Token('foo')
+        b = Token('foo')
+
+        self.assertEqual(hash(a), hash('foo'))
+        self.assertEqual(hash(a), hash(b))
+
+    def test_token_lookup(self):
+        a = Token('foo')
+        b = Token('bar')
+        x = {
+            a: 'a',
+            b: 'b',
+        }
+        self.assertEqual(x[a], 'a')
+        self.assertEqual(x[b], 'b')
+
+        a = Token('foo')
+        b = Token('bar')
+        self.assertEqual(x[a], 'a')
+        self.assertEqual(x[b], 'b')
+
+    def test_str_lookup(self):
+        a = Token('foo')
+        b = Token('bar')
+        x = {
+            'foo': 'a',
+            'bar': 'b',
+        }
+        self.assertEqual(x[a], 'a')
+        self.assertEqual(x[b], 'b')
 
 
 class TestParser(unittest.TestCase):

@@ -2,61 +2,131 @@ from __future__ import unicode_literals, absolute_import
 
 import unittest
 from tests.helpers import *
-from oxeye.parser import ParseError
-from examples.calculator import Tok, Lexer, RexCalculator, TokenCalculator
+from oxeye.parser import Token, ParseError
+from examples.calculator import Lexer, RexCalculator, TokenCalculator
+
+
+class TestLexer(unittest.TestCase):
+    def setUp(self):
+        self.maxDiff = None  # show everything on failure
+        self.lexer = Lexer()
+
+    def assertLexEqual(self, a, b):
+        self.assertEqual(map(unicode, a), map(unicode, b))
+
+    def test_lex1(self):
+        self.lexer.parse(' 10 ')
+        expected = [
+            Token('number', '10', 1, 2)
+        ]
+        self.assertLexEqual(self.lexer.tokens, expected)
+
+    def test_lex2(self):
+        self.lexer.parse('- 22.56 +\n*)(')
+        expected = [
+            Token('-', '-', 1, 1), 
+            Token('number', '22.56', 1, 3),
+            Token('+', '+', 1, 9), 
+            Token('*', '*', 2, 1), 
+            Token(')', ')', 2, 2),
+            Token('(', '(', 2, 3),
+        ]
+        self.assertLexEqual(self.lexer.tokens, expected)
 
 
 class TestCalculator(unittest.TestCase):
-    def test_lex(self):
-        self.maxDiff = None  # show everything on failure
-        lexer = Lexer()
+    def setUp(self):
+        self.rexCalc = RexCalculator()
+        self.tokCalc = TokenCalculator()
 
-        for expr, result in (
-            (' 10 ', [
-                Tok.number(10.0, 1, 2)
-            ]),
-            ('-22.56 +\n*)(', [
-                Tok.dash('-', 1, 1), 
-                Tok.number('22.56', 1, 2),
-                Tok.plus('+', 1, 8), 
-                Tok.star('*', 2, 1), 
-                Tok.rparen(')', 2, 2),
-                Tok.lparen('(', 2, 3),
-            ]),
-        ):
-            with test_context(expr=expr, result=result):
-                lexer.reset()
-                test_result = lexer.parse(expr)
-                self.assertEqual(map(str, test_result), map(str, result))
+    def test_parse1(self):
+        expr = ''
+        result = 0.0
+        self.assertEqual(result, self.rexCalc.parse(expr).eval())
+        self.assertEqual(result, self.tokCalc.parse(expr).eval())
 
-    calc_tests = (
-        ('', 0.0),
-        (' 10', 10.0),
-        ('10+11', 21.0),
-        (' 10+ 10-20', 00.0),
+    def test_parse2(self):
+        expr = ' 10'
+        result = 10.0
+        self.assertEqual(result, self.rexCalc.parse(expr).eval())
+        self.assertEqual(result, self.tokCalc.parse(expr).eval())
+
+    def test_parse3(self):
+        expr = '10+11'
+        result = 21.0
+        self.assertEqual(result, self.rexCalc.parse(expr).eval())
+        self.assertEqual(result, self.tokCalc.parse(expr).eval())
+
+    def test_parse4(self):
+        expr = ' 10+ 10-20'
+        result = 00.0
+        self.assertEqual(result, self.rexCalc.parse(expr).eval())
+        self.assertEqual(result, self.tokCalc.parse(expr).eval())
+
+    def test_parse3(self):
+        expr = '10+11'
+        result = 21.0
         (' 10* 11', 110.0),
-        ('10+10 * 3 ', 40.0),
-        (' (10)', 10.0),
-        ('(10+11)', 21.0),
-        (' (1+2)+(3+4)+(5+6)', 21.0),
-        (' ( 10+ 10) -(20+ 40) ', -40.0),
-        ('3+0.14', 3.14),
-        ('7 / 2', 3.5),
-        (' - 345', -345.0),
-    )
+        self.assertEqual(result, self.rexCalc.parse(expr).eval())
+        self.assertEqual(result, self.tokCalc.parse(expr).eval())
 
-    def test_rex_parse(self):
-        calc = RexCalculator()
-        for expr, result in self.calc_tests:
-            with test_context(expr=expr, result=result):
-                calc.reset()
-                self.assertEqual(calc.parser.state, 'ws_expression')
-                self.assertEqual(result, calc.parse(expr).eval())
+    def test_parse4(self):
+        expr = ' 10+ 10-20'
+        result = 00.0
+        self.assertEqual(result, self.rexCalc.parse(expr).eval())
+        self.assertEqual(result, self.tokCalc.parse(expr).eval())
 
-    def test_token_parse(self):
-        calc = TokenCalculator()
-        for expr, result in self.calc_tests:
-            calc.reset()
-            self.assertEqual(calc.parser.state, 'expression')
-            self.assertEqual(result, calc.parse(expr).eval())
+    def test_parse5(self):
+        expr = ' 10+ 10-20'
+        result = 00.0
+        self.assertEqual(result, self.rexCalc.parse(expr).eval())
+        self.assertEqual(result, self.tokCalc.parse(expr).eval())
 
+    def test_parse6(self):
+        expr = '10+10 * 3 '
+        result = 40.0
+        self.assertEqual(result, self.rexCalc.parse(expr).eval())
+        self.assertEqual(result, self.tokCalc.parse(expr).eval())
+
+    def test_parse7(self):
+        expr = ' (10)'
+        result = 10.0
+        self.assertEqual(result, self.rexCalc.parse(expr).eval())
+        self.assertEqual(result, self.tokCalc.parse(expr).eval())
+
+    def test_parse8(self):
+        expr = '(10+11)'
+        result = 21.0
+        self.assertEqual(result, self.rexCalc.parse(expr).eval())
+        self.assertEqual(result, self.tokCalc.parse(expr).eval())
+
+    def test_parse9(self):
+        expr = ' (1+2)+(3+4)+(5+6)'
+        result = 21.0
+        self.assertEqual(result, self.rexCalc.parse(expr).eval())
+        self.assertEqual(result, self.tokCalc.parse(expr).eval())
+
+    def test_parse10(self):
+        expr = ' ( 10+ 10) -(20+ 40) '
+        result = -40.0
+        self.assertEqual(result, self.rexCalc.parse(expr).eval())
+        self.assertEqual(result, self.tokCalc.parse(expr).eval())
+
+    def test_parse11(self):
+        expr = '3+0.14'
+        result = 3.14
+        self.assertEqual(result, self.rexCalc.parse(expr).eval())
+        self.assertEqual(result, self.tokCalc.parse(expr).eval())
+
+    def test_parse12(self):
+        expr = '7 / 2'
+        result = 3.5
+        self.assertEqual(result, self.rexCalc.parse(expr).eval())
+        self.assertEqual(result, self.tokCalc.parse(expr).eval())
+
+    def test_parse13(self):
+        expr = ' - 345'
+        result = -345.0
+        self.assertEqual(result, self.rexCalc.parse(expr).eval())
+        self.assertEqual(result, self.tokCalc.parse(expr).eval())
+        

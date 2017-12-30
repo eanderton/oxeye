@@ -35,6 +35,8 @@ class ASTManager(object):
         return node
 
     def arg(self, value):
+        if isinstance(value, Token):
+            value = value.value
         p = self.head
         if p.right:
             p = p.right
@@ -117,18 +119,8 @@ class RexCalculator(object):
         return self.ast.root
 
 
-class Tok(object):
-    '''
-    Containing namespace for token types.
-    '''
-    number = Token.factory('number', float)
-    lparen = Token.factory('lparen')
-    rparen = Token.factory('rparen')
-    dash = Token.factory('dash')
-    plus = Token.factory('plus')
-    star = Token.factory('star')
-    slash = Token.factory('slash')
-
+# Token representing number values. 
+tok_number = Token('number')
 
 class Lexer(object):
     '''
@@ -136,35 +128,38 @@ class Lexer(object):
     Line and column information is gathered and attached to tokens as they are generated. 
     '''
     def __init__(self):
-        def tt(token_type):
-            def impl(value):
-                self.tokens.append(token_type(value, self.line, self.column))
-                self.column += len(value)
-            return impl
+        def token(value, token_type=Token):
+            #self.tokens.append(token_type(value, self.line, self.column))
+            tok = token_type(value, line=self.line, column=self.column)
+            self.tokens.append(tok)
+            self.column += len(value)
+
+        def number(value):
+            token(value, tok_number)
 
         def ws(value):
             self.column += len(value)
 
-        def new_line(value):
+        def newline(value):
             self.column = 1
             self.line += 1
 
         self.parser = Parser({
             'goal': (
                 {
-                    '(': (tt(Tok.lparen), 'goal'),
-                    ')': (tt(Tok.rparen), 'goal'),
-                    '-': (tt(Tok.dash), 'goal'),
-                    '+': (tt(Tok.plus), 'goal'),
-                    '*': (tt(Tok.star), 'goal'),
-                    '/': (tt(Tok.slash), 'goal'),
+                    '(': (token, 'goal'),
+                    ')': (token, 'goal'),
+                    '-': (token, 'goal'),
+                    '+': (token, 'goal'),
+                    '*': (token, 'goal'),
+                    '/': (token, 'goal'),
                     ' ': (ws, 'goal'),
                     '\r': (ws, 'goal'),
                     '\t': (ws, 'goal'),
                     '\v': (ws, 'goal'),
-                    '\n': (new_line, 'goal'),
+                    '\n': (newline, 'goal'),
                 },
-                (match_rex(r'(\d+(?:\.\d+)?)'), tt(Tok.number), 'goal'),
+                (match_rex(r'(\d+(?:\.\d+)?)'), number, 'goal'),
                 (match_any, err('unexpected token'), None),
             ),
         })
@@ -178,7 +173,6 @@ class Lexer(object):
 
     def parse(self, text):
         self.parser.parse(text)
-        return self.tokens
 
 
 class TokenCalculator(object):
@@ -191,20 +185,24 @@ class TokenCalculator(object):
         self.ast = ASTManager()
         self.parser = TokenParser({
             'expression': (
-                (Tok.dash, self.ast.neg, 'sub_expression'),
+                ('-', self.ast.neg, 'sub_expression'),
                 (match_peek, nop, 'sub_expression'),
             ),
             'sub_expression': (
-                (Tok.number, self.ast.arg, 'operation'),
-                (Tok.lparen, self.ast.push_expr, 'expression'),
+                {
+                    tok_number: (self.ast.arg, 'operation'),
+                    '(': (self.ast.push_expr, 'expression'),
+                },
                 (match_any, err('Expected number or open-paren'), None),
             ),
             'operation': (
-                (Tok.plus, self.ast.add, 'expression'),
-                (Tok.dash, self.ast.sub, 'expression'),
-                (Tok.star, self.ast.mul, 'expression'),
-                (Tok.slash, self.ast.div, 'expression'),
-                (Tok.rparen, self.ast.pop_expr, 'operation'),
+                {
+                    '+': (self.ast.add, 'expression'),
+                    '-': (self.ast.sub, 'expression'),
+                    '*': (self.ast.mul, 'expression'),
+                    '/': (self.ast.div, 'expression'),
+                    ')': (self.ast.pop_expr, 'operation'),
+                },
                 (match_any, err('Expected numeric operation'), None),
             ),
         }, start_state='expression')
@@ -214,7 +212,9 @@ class TokenCalculator(object):
         self.ast.reset()
  
     def parse(self, text):
-        self.parser.parse(Lexer().parse(text))
+        lexer = Lexer()
+        lexer.parse(text)
+        self.parser.parse(lexer.tokens)
         return self.ast.root
 
 

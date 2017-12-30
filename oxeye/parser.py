@@ -61,22 +61,25 @@ class Token(object):
 
     __unicode__ = __str__
 
-    @classmethod
-    def factory(cls, name, value_fn=None):
+    def __hash__(self):
         '''
-        Factory method for new Token types.  Tokens must have a name to help distinguish
-        them during debugging, and may have an optional value filter function `value_fn`.
+        Override for hash magic to allow tokens to match to string names, and to
+        allow value-oriented tokens to match cleanly.
         '''
+        return self.name.__hash__()
 
-        if value_fn:
-            class TokenImpl(Token):
-                def __init__(self, value, line=0, column=0):
-                    Token.__init__(self, name, value_fn(value), line, column)
-        else:
-            class TokenImpl(Token):
-                def __init__(self, value, line=0, column=0):
-                    Token.__init__(self, name, value, line, column)
-        return TokenImpl
+    def __eq__(self, other):
+        if isinstance(other, str):
+            return str(self.name) == other
+        if isinstance(other, unicode):
+            return unicode(self.name) == other
+        return self.name == other.name
+
+    def __call__(self, value=None, line=0, column=0):
+        '''
+        Returns a new token that shares the same name as self.
+        '''
+        return Token(self.name, value, line, column)
 
 
 class ParseError(Exception):
@@ -325,6 +328,15 @@ def match_set(value_set):
     return impl
 
 
+def match_token(value):
+    value_tok = Token(value)
+    def impl(tokens):
+        tok = tokens[0]
+        if tok == value_tok:
+            return passed_match(1, (tok,))
+        return failed_match()
+    return impl
+
 def match_all(tokens):
     '''
     Matches against all remaining input tokens and passes them to the predicate.
@@ -384,25 +396,13 @@ class RexParser(Parser):
         return match_rex(tok)
 
 
-def _token_type_dispatch(*args, **kwargs):
-    '''
-    Multimethod dispatch function for TokenParser.  Allows registered multimethods to 
-    match on the 'Token' type, if a subclass of that type is provided.
-    '''
-
-    tok = args[0]
-    if inspect.isclass(tok) and issubclass(tok, Token):
-        return Token
-    return type(tok)
-
-
 class TokenParser(Parser):
     '''
     Parser implementation for Token type streams.  Provides support for Token subclasses
     as match expressions in the parser specification.
     '''
 
-    _compile_match = Parser._compile_match.extend(_token_type_dispatch)
+    _compile_match = Parser._compile_match.extend()
 
     def _error(self, position, state, tokens, msg, nested):
         '''
@@ -413,11 +413,16 @@ class TokenParser(Parser):
         msg = '({}, {}) {}'.format(tok.line, tok.column, msg) 
         raise ParseError(position, state, tokens, msg, nested)
 
+    @_compile_match.method(str)
+    @_compile_match.method(unicode)
+    def _compile_match_str(self, tok):
+        return match_token(tok)
+    
     @_compile_match.method(Token)
     def _compile_match_token(self, tok):
         def impl(tokens):
             other = tokens[0]
-            if isinstance(other, tok):
+            if tok == other:
                 return passed_match(1, (other.value,))
             return failed_match()
         return impl
