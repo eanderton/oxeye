@@ -1,9 +1,8 @@
 from __future__ import unicode_literals, absolute_import
 
-from oxeye.token import Token, TokenParser
+from oxeye.token import Token, TokenParser, TokenLexer
 from oxeye.parser import (Parser, RexParser, nop, err, 
                           match_any, match_peek, match_rex, match_all)
-
 
 class AST(object):
     '''
@@ -122,60 +121,34 @@ class RexCalculator(object):
 # Token representing number values. 
 tok_number = Token('number')
 
-class Lexer(object):
+class Lexer(TokenLexer):
     '''
     Lexer for TokenCalculator.  Seralizes a text stream into a list of tokens.
     Line and column information is gathered and attached to tokens as they are generated. 
     '''
     def __init__(self):
-        def token(value, token_type=Token):
-            #self.tokens.append(token_type(value, self.line, self.column))
-            tok = token_type(value, line=self.line, column=self.column)
-            self.tokens.append(tok)
-            self.column += len(value)
-
-        def number(value):
-            token(value, tok_number)
-
-        def ws(value):
-            self.column += len(value)
-
-        def newline(value):
-            self.column = 1
-            self.line += 1
-
-        self.parser = Parser({
+        super(TokenLexer, self).__init__({
             'goal': (
                 {
-                    '(': (token, 'goal'),
-                    ')': (token, 'goal'),
-                    '-': (token, 'goal'),
-                    '+': (token, 'goal'),
-                    '*': (token, 'goal'),
-                    '/': (token, 'goal'),
-                    ' ': (ws, 'goal'),
-                    '\r': (ws, 'goal'),
-                    '\t': (ws, 'goal'),
-                    '\v': (ws, 'goal'),
-                    '\n': (newline, 'goal'),
+                    '(': (self._token, 'goal'),
+                    ')': (self._token, 'goal'),
+                    '-': (self._token, 'goal'),
+                    '+': (self._token, 'goal'),
+                    '*': (self._token, 'goal'),
+                    '/': (self._token, 'goal'),
+                    ' ': (self._whitespace, 'goal'),
+                    '\r': (self._whitespace, 'goal'),
+                    '\t': (self._whitespace, 'goal'),
+                    '\v': (self._whitespace, 'goal'),
+                    '\n': (self._newline, 'goal'),
                 },
-                (match_rex(r'(\d+(?:\.\d+)?)'), number, 'goal'),
+                (match_rex(r'(\d+(?:\.\d+)?)'), self._token_as(tok_number), 'goal'),
                 (match_any, err('unexpected token'), None),
             ),
         })
-        self.reset()
-
-    def reset(self):
-        self.tokens = []
-        self.line = 1
-        self.column = 1
-        self.parser.reset()
-
-    def parse(self, text):
-        self.parser.parse(text)
 
 
-class TokenCalculator(object):
+class TokenCalculator(TokenParser):
     '''
     Example of a calculator that uses a Token stream and Token matching for parsing.
     Relies on the Lexer implementation in this module to generate the input Token
@@ -183,7 +156,7 @@ class TokenCalculator(object):
     '''
     def __init__(self):
         self.ast = ASTManager()
-        self.parser = TokenParser({
+        super(TokenCalculator, self).__init__({
             'expression': (
                 ('-', self.ast.neg, 'sub_expression'),
                 (match_peek, nop, 'sub_expression'),
@@ -208,13 +181,13 @@ class TokenCalculator(object):
         }, start_state='expression')
 
     def reset(self):
-        self.parser.reset()
+        super(TokenCalculator, self).reset()
         self.ast.reset()
  
     def parse(self, text):
         lexer = Lexer()
         lexer.parse(text)
-        self.parser.parse(lexer.tokens)
+        super(TokenCalculator, self).parse(lexer.tokens)
         return self.ast.root
 
 

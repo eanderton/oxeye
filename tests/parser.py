@@ -22,6 +22,58 @@ class TestParser(unittest.TestCase):
         self.assertEqual(parser.state, 'goal')
 
 
+class TestParserCompile(unittest.TestCase):
+    def test_invalid_rule(self):
+        with self.assertRaises(CompileError) as ctx:
+            Parser({
+                'foo': [ 'bar', ]
+            })
+        self.assertEquals(ctx.exception.message, 'No registered method to compile rule')
+
+    def test_invalid_rule_compile(self):
+        with self.assertRaises(CompileError) as ctx:
+            class BadParser(Parser):
+                _compile_rule = Parser._compile_rule.clone()
+                
+                @_compile_rule.method(unicode)
+                @_compile_rule.method(str)
+                def _compile_rule_str(self, rule):
+                    return rule  # pass-through to trigger exception
+
+            BadParser({
+                'foo': [ 'bar', ]
+            })
+        self.assertEquals(ctx.exception.message, 'Rule must compile to a callable object')
+
+    def test_callable_rule_compile(self):
+        rule = lambda x: None
+        p = Parser({
+            'foo': [ rule ]
+        })
+        self.assertEquals(p.spec['foo'][0], rule) 
+
+    def test_invalid_match_fn(self):
+        with self.assertRaises(CompileError) as ctx:
+            Parser({
+                'foo': [ (12345, lambda x: None, 'foo'), ]
+            })
+        self.assertEquals(ctx.exception.message, 'Match expression "12345" is not callable')
+
+    def test_invalid_match_compile(self):
+        with self.assertRaises(CompileError) as ctx:
+            class BadParser(Parser):
+                _compile_match = Parser._compile_match.clone()
+                
+                @_compile_match.method(int)
+                def _compile_rule_str(self, rule):
+                    return rule  # pass-through to trigger exception
+
+            BadParser({
+                'foo': [ (12345, lambda x: None, 'foo'), ]
+            })
+        self.assertEquals(ctx.exception.message, 'Rule match function must compile to a callable object')
+
+
 class TestParserError(unittest.TestCase):
     def setUp(self):
         def throw_fn(value):
@@ -29,8 +81,8 @@ class TestParserError(unittest.TestCase):
 
         self.parser = Parser({
             'goal': (
-                (match_str('foo'), throw_fn, 'goal'),
-                (match_str('baz'), err('failure'), 'goal'),
+                (match_seq('foo'), throw_fn, 'goal'),
+                (match_seq('baz'), err('failure'), 'goal'),
             )
         })
 
@@ -44,7 +96,7 @@ class TestParserError(unittest.TestCase):
         e = ctx.exception
         self.assertEquals(self.parser.status, {
             'pos': 0,
-            'tok': 'b',
+            'head': 'b',
             'state': 'goal',
             'rule': 2,
         })
@@ -56,7 +108,7 @@ class TestParserError(unittest.TestCase):
         e = ctx.exception
         self.assertEquals(self.parser.status, {
             'pos': 0,
-            'tok': 'f',
+            'head': 'f',
             'state': 'goal',
             'rule': 0,
         })
@@ -68,7 +120,7 @@ class TestParserError(unittest.TestCase):
         e = ctx.exception
         self.assertEquals(self.parser.status, {
             'pos': 0,
-            'tok': 'b',
+            'head': 'b',
             'state': 'goal',
             'rule': 1,
         })
@@ -77,38 +129,36 @@ class TestParserError(unittest.TestCase):
 
 class TestMatchFunction(unittest.TestCase):
     def setUp(self):
-        self.all_value = None
-        self.any_value = None
-        self.peek_value = None
-        self.range_value = None
+        self.all = None
+        self.result = None
+
+        def all_pred(value):
+            self.all = value
  
-        def all_pred(values):
-            self.all_value = values
- 
-        def any_pred(value):
-            self.any_value = value
- 
-        def peek_pred(value):
-            self.peek_value = value
- 
-        def range_pred(value):
-            self.range_value = value
+        def result_pred(value):
+            self.result = value
  
         self.parser = Parser({
             'any': (
-                (match_any, any_pred, 'all'),
+                (match_any, result_pred, 'all'),
             ),
             'peek': (
-                (match_peek, peek_pred, 'all'),
+                (match_peek, result_pred, 'all'),
             ),
             'range_digit': (
-                (match_set(map(str, range(0, 9))), range_pred, 'all'),
+                (match_set(map(str, range(0, 9))), result_pred, 'all'),
             ),
             'range_char': (
-                (match_set(['f', 'b']), range_pred, 'all'),
+                (match_set(['f', 'b']), result_pred, 'all'),
             ),
             'range_str': (
-                (match_set(['foo', 'bar']), range_pred, 'all'),
+                (match_set(['foo', 'bar']), result_pred, 'all'),
+            ),
+            'sequence_char': (
+                (match_seq('foo'), result_pred, 'all'),
+            ),
+            'sequence_str': (
+                (match_seq(['foo', 'bar']), result_pred, 'all'),
             ),
             'all': (
                 (match_all, all_pred, None),
@@ -117,29 +167,46 @@ class TestMatchFunction(unittest.TestCase):
      
     def test_match_all(self):
         self.parser.parse('foobar', 'all')
-        self.assertEquals(self.all_value, 'foobar')
+        self.assertEquals(self.all, 'foobar')
 
     def test_match_any(self):
         self.parser.parse('foobar', 'any')
-        self.assertEquals(self.any_value, 'f')
-        self.assertEquals(self.all_value, 'oobar')
+        self.assertEquals(self.result, 'f')
+        self.assertEquals(self.all, 'oobar')
 
     def test_match_peek(self):
         self.parser.parse('foobar', 'peek')
-        self.assertEquals(self.peek_value, 'f')
-        self.assertEquals(self.all_value, 'foobar')
+        self.assertEquals(self.result, 'f')
+        self.assertEquals(self.all, 'foobar')
 
     def test_match_set_digit(self):
         self.parser.parse('1234', 'range_digit')
-        self.assertEquals(self.range_value, '1')
-        self.assertEquals(self.all_value, '234')
-        
+        self.assertEquals(self.result, '1')
+        self.assertEquals(self.all, '234')
+         
     def test_match_set_char(self):
         self.parser.parse('foobar', 'range_char')
-        self.assertEquals(self.range_value, 'f')
-        self.assertEquals(self.all_value, 'oobar')
+        self.assertEquals(self.result, 'f')
+        self.assertEquals(self.all, 'oobar')
 
     def test_match_set_str(self):
         self.parser.parse(['foo', 'bar'], 'range_str')
-        self.assertEquals(self.range_value, 'foo')
-        self.assertEquals(self.all_value, ['bar'])
+        self.assertEquals(self.result, 'foo')
+        self.assertEquals(self.all, ['bar'])
+
+    def test_match_seq_char(self):
+        self.parser.parse('foobar', 'sequence_char')
+        self.assertEquals(self.result, 'foo')
+        self.assertEquals(self.all, 'bar')
+
+    def test_match_seq_str(self):
+        self.parser.parse(['foo', 'bar', 'baz'], 'sequence_str')
+        self.assertEquals(self.result, ['foo', 'bar'])
+        self.assertEquals(self.all, ['baz'])
+
+
+class TestRexParser(object):
+    def test_rex_ctor_fail(self):
+        with self.assertRaises(Exception) as ctx:
+            RexParser([])
+        self.assertEquals(e.message, 'RexParser expects string or buffer (got [] instead)')

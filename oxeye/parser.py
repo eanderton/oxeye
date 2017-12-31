@@ -22,12 +22,12 @@ def nop(*args, **kwargs):
     pass 
 
 
-def err(msg):
+def err(message):
     '''
-    Predicate function that emits an exception for `msg`.
+    Predicate function that emits an exception for `message`.
     '''
     def impl(*args, **kwargs):
-        raise Exception(msg)
+        raise Exception(message)
     return impl
 
 
@@ -48,7 +48,9 @@ class CompileError(Exception):
     
     See the parser `status` property for additional error context.
     '''
-    pass
+    def __init__(self, parser, *args, **kwargs):
+        super(CompileError, self).__init__(*args, **kwargs)
+        self.parser = parser
 
 
 def failed_match():
@@ -95,6 +97,7 @@ class Parser(object):
 
     '''
 
+    # TODO implement end states
     def __init__(self, spec, start_state='goal'):
         '''
         Parser constructor.  Builds a parser around the `spec` state machine that 
@@ -117,7 +120,7 @@ class Parser(object):
             for self._rule in range(len(tests)):
                 rule = self._compile_rule(tests[self._rule])
                 if not callable(rule):
-                    raise CompileError('Rule must compile to a callable object')
+                    raise CompileError(self, 'Rule must compile to a callable object')
                 self.spec[self._state].append(rule)
         # TODO: semantic checking of next_state validity
         self.reset()
@@ -130,7 +133,7 @@ class Parser(object):
         no other dispatchable types were matched.
         '''
 
-        raise CompileError('No registered method to compile rule', rule)
+        raise CompileError(self, 'No registered method to compile rule')
 
     @_compile_rule.method(Callable)
     def _compile_callable_rule(self, rule):
@@ -153,7 +156,7 @@ class Parser(object):
         match_tok, predicate_fn, next_state = rule
         match_fn = self._compile_match(match_tok)
         if not callable(match_fn):
-            raise CompileError('Rule match function must compile to a callable object')
+            raise CompileError(self, 'Rule match function must compile to a callable object')
         def impl(tokens):
             match_success, advance, predicate_args, predicate_kwargs = match_fn(tokens)
             if match_success:
@@ -163,51 +166,47 @@ class Parser(object):
         return impl
 
     @_compile_rule.method(dict)
-    def _compile_dict_rule(self, rule):
+    def _compile_dict_rule(self, rule_dict):
         '''
         Compiler dispatch function for dict-based rules.  Returns a function
         that processes zero or more tokens, and returns a passed/failed rule 
         tuple as a result.
         '''
 
-        def impl(tokens):
-            tok = tokens[0]
-            if tok in rule:
-                predicate_fn, next_state = rule[tok]
-                predicate_fn(tok)
+        # TODO: semantic pass on rule_dict
+        def impl(sequence):
+            head = sequence[0]
+            rule = rule_dict.get(head, None)
+            if rule:
+                predicate_fn, next_state = rule
+                predicate_fn(head)
                 return passed_rule(1, next_state)
             return failed_rule()
         return impl
 
     @singledispatch
-    def _compile_match(self, tok):
+    def _compile_match(self, value):
         '''
         Default function for compiling match functions.  Raises an exception
         as no other dispatchable types were matched.
         '''
 
-        raise CompileError('Match expression is not callable', tok)
+        raise CompileError(self, 'Match expression "{}" is not callable'.format(value))
     
     @_compile_match.method(Callable)
-    def _compile_match_callable(self, tok):
+    def _compile_match_callable(self, fn):
         '''
         Returns the provided match callable as a match function.
         '''
-        assert(callable(tok))
-        return tok
+        return fn
 
     @_compile_match.method(str)
     @_compile_match.method(unicode)
-    def _compile_match_str(self, tok):
+    def _compile_match_str(self, value):
         '''
         Returns a match function for string and unicode values.
         '''
-
-        def impl(tokens):
-            if tokens[0] == tok:
-                return passed_match(1, (tokens[0],))
-            return failed_match()
-        return impl
+        return match_head(value)
 
     def reset(self):
         '''
@@ -220,15 +219,33 @@ class Parser(object):
         self._seq = []
         self._rule = 0
 
-    def parse(self, sequence=None, state=None, position=0):
+    def parse(self, sequence=None, state=None, position=0, exhaustive=True):
         '''
-        Parses `sequence`, using the curent state machine configuration.  The
-        parser will attempt to match all tokens in `tokens`, running to exhasution.
-        Failure to exhaust all tokens will result in an error.
+        Parses a sequence of elements, using the curent state machine configuration.
+        Each parameter overrides an aspect of this state, allowing for partial
+        parse passes, starting from an alternate state or position, and running
+        the parser to exhaustion.
 
-        This may be called using an alternate starting state, `state`,
-        than the one configured in the constructor. 
+        Returns True if the sequence was entirely parsed (exhausted), False if not.
+
+        The default state, position, and sequence, in a newly constructed parser
+        are set to `start_state`, `0`, and `[]` respectively.  Additionally, these 
+        are guaranteed by any call to `reset()`.
+
+        The `exhaustive` argument is set to True by default.  The parser will
+        raise ParseError if it cannot match a rule against the sequence in the
+        current state.
+
+        Providing `sequence` will parse against the provided sequence, starting
+        at the current position and state.
+
+        Providing `state` will start the parse at the provided state instead of 
+        the current state.
+
+        Providing `position` will start the parse at the provided position in the
+        sequence instead of the current position.
         '''
+
         self._state = state or self._state
         self._pos = position or self._pos
         self._seq = sequence or self._seq
@@ -242,8 +259,11 @@ class Parser(object):
                     self._state = next_state
                     break
                 self._rule += 1
-            else:  # TODO: elif not partial  # partial matching support
-                raise ParseError('No match found')
+            else:
+                if exhaustive:  
+                    raise ParseError('No match found')
+                return False
+        return True
 
     @property
     def pos(self):
@@ -254,12 +274,12 @@ class Parser(object):
         return self._pos
 
     @property
-    def tok(self):
+    def head(self):
         '''
         Returns the token at the current position of the parser.
         '''
 
-        return self._seq[self._pos] if self._pos < len(self._seq) else None
+        return self._seq[self._pos] if self._seq and self._pos < len(self._seq) else None
 
     @property
     def state(self):
@@ -284,25 +304,25 @@ class Parser(object):
         with `str.format()` as kwargs.
         '''
 
-        keys = ['pos', 'tok', 'state', 'rule']
+        keys = ['pos', 'head', 'state', 'rule']
         return dict(zip(keys, map(lambda x: getattr(self, x), keys)))
 
 
-def match_any(tokens):
+def match_any(sequence):
     '''
-    Matches any single token.
+    Matches any head element on sequence.
     '''
 
-    return passed_match(1, (tokens[0],))
+    return passed_match(1, (sequence[0],))
 
 
-def match_peek(tokens):
+def match_peek(sequence):
     '''
-    Matches any single token, but does not advance the parser.  May be used in
+    Matches any head element, but does not advance the parser.  May be used in
     conjunction with `nop` to move the parser to a different state.
     '''
 
-    return passed_match(0, (tokens[0],))
+    return passed_match(0, (sequence[0],))
 
 
 def match_set(value_set):
@@ -311,10 +331,10 @@ def match_set(value_set):
     operator.  The `value_set` may be any object that implements `__in__`.
     '''
 
-    def impl(tokens):
-        tok = tokens[0]
-        if tok in value_set:
-            return passed_match(1, (tok,))
+    def impl(sequence):
+        head = sequence[0]
+        if head in value_set:
+            return passed_match(1, (head,))
         return failed_match()
     return impl
 
@@ -328,26 +348,30 @@ def match_all(seq):
     return passed_match(len(seq), (seq,))
 
 
-# TODO: change to head match
-def match_str(tok):
+def match_head(value):
     '''
-    Match function that matches a string against multiple successive character
-    tokens.
+    Match function that matches a value against the head of the sequence.
     '''
 
-    tok_len = len(tok)
-    def impl(tokens):
-        if tokens[:tok_len] == tok:
-            return passed_match(tok_len, (tok,))
+    def impl(sequence):
+        head = sequence[0]
+        if head == value:
+            return passed_match(1, (head,))
         return failed_match()
     return impl
 
-# TODO: change to subsequence match
-def match_multi(*values):
+
+def match_seq(values):
+    '''
+    Returns a match function that matches `values` against the multiple succesive
+    elements from the head of the sequence.
+    '''
+
     values_len = len(values)
-    def impl(tokens):
-        if tokens[:values_len] == values:
-            return passed_match(values_len, (tokens[:values_len],))
+    def impl(sequence):
+        sub_sequence = sequence[:values_len]
+        if sub_sequence == values:
+            return passed_match(values_len, (sub_sequence,))
         return failed_match()
     return impl
 
@@ -363,8 +387,8 @@ def match_rex(expr):
     '''
 
     rex = re.compile(expr)
-    def impl(tokens):
-        result = rex.match(tokens)
+    def impl(sequence):
+        result = rex.match(sequence)
         if result:
             return passed_match(result.end(), result.groups(), result.groupdict())
         return failed_match()

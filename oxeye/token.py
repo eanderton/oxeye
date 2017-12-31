@@ -6,7 +6,7 @@ Oxeye Parser library for Token-based implementations.
 from __future__ import unicode_literals, absolute_import
 from oxeye.multimethods import enable_descriptor_interface, singledispatch
 from oxeye.multimethods_ext import Callable, patch_multimethod_clone
-from oxeye.parser import Parser, ParseError, failed_match, passed_match
+from oxeye.parser import Parser, ParseError, match_head
 
 enable_descriptor_interface()
 patch_multimethod_clone()
@@ -74,12 +74,7 @@ class TokenParser(Parser):
 
     @_compile_match.method(Token)
     def _compile_match_token(self, tok):
-        def impl(tokens):
-            other = tokens[0]
-            if tok == other:
-                return passed_match(1, (other,))
-            return failed_match()
-        return impl
+        return match_head(tok)
 
     @property
     def line(self):
@@ -87,7 +82,7 @@ class TokenParser(Parser):
         Returns the current token line positiion.
         '''
 
-        return self._tok.line if self._tok and hasattr(self._tok, 'line') else None
+        return self.head.line if self.head and hasattr(self.head, 'line') else None
     
     @property
     def column(self):
@@ -95,7 +90,7 @@ class TokenParser(Parser):
         Returns the current token column position.
         '''
 
-        return self._tok.column if self._tok and hasattr(self._tok, 'column') else None
+        return self.head.column if self.head and hasattr(self.head, 'column') else None
 
     @property
     def status(self):
@@ -116,7 +111,7 @@ class TokenLexer(Parser):
     '''
     Lexer implementation that converts parsed input into a series of Token instances.
 
-    The tokens are available via `self.tokens` after a call to `parse()`.
+    The tokens are available via `self._tokens` after a call to `parse()`.
     '''
 
     def reset(self):
@@ -134,8 +129,17 @@ class TokenLexer(Parser):
         Predicate function that creates a new token of the given type for `value`.
         '''
 
-        self._tokens.append(token_type(value, self._line, self._column))
+        self._tokens.append(token_type(value, line=self._line, column=self._column))
         self._column += len(value)
+
+    def _token_as(self, token_type):
+        '''
+        Returns a predicate function that wraps `_token()` with a specified Token type.
+        '''
+
+        def impl(value):
+            return self._token(value, token_type)
+        return impl
 
     def _whitespace(self, value):
         '''

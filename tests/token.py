@@ -1,6 +1,7 @@
 from __future__ import unicode_literals, absolute_import
 
 import unittest
+from oxeye.parser import nop
 from oxeye.token import *
 from tests.helpers import *
 
@@ -65,4 +66,51 @@ class TestToken(unittest.TestCase):
         self.assertEqual(x[a], 'a')
         self.assertEqual(x[b], 'b')
 
+
+class TestTokenLexer(unittest.TestCase):
+    def test_status(self):
+        def ws(value):
+            p._whitespace(value)
+
+        def newline(value):
+            p._newline(value)
+
+        p = TokenLexer({
+            'goal': (
+                ('f', nop, 'goal'),
+                ('o', nop, 'goal'),
+                ('b', nop, 'goal'),
+                ('a', nop, 'goal'),
+                ('r', nop, 'goal'),
+                ('\n', newline, 'goal'),
+                (' ', ws, 'goal'),
+            )
+        })
+        p.parse('foo \nbar \nbaz\ngorf', exhaustive=False)
+        self.assertEqual('({line},{column})'.format(**p.status), '(3,1)')
+   
+    
+class TestTokenParser(unittest.TestCase):
+    def test_match_token(self):
+        result = None
+        def result_pred(value):
+            result = value
+
+        p = TokenParser({
+            'goal': (
+                (Token('foo'), result_pred, 'goal'),
+            )
+        })
+        self.assertTrue(p.parse([Token('foo')]))
+        
+    def test_status(self):
+        p = TokenParser({
+            'goal': (
+                ('foo', nop, 'goal'),
+            )
+        })
+        p.parse([
+            Token('foo', line=1, column=2), Token('bar', line=10, column=20),
+        ], exhaustive=False)
+        self.assertEqual('({line},{column})'.format(**p.status), '(10,20)')
 
