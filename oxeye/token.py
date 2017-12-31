@@ -5,19 +5,17 @@ Oxeye Parser library for Token-based implementations.
 
 from __future__ import unicode_literals, absolute_import
 from oxeye.multimethods import enable_descriptor_interface, singledispatch
-from oxeye.multimethods_ext import Callable, patch_multimethod_extend
+from oxeye.multimethods_ext import Callable, patch_multimethod_clone
 from oxeye.parser import Parser, ParseError, failed_match, passed_match
 
 enable_descriptor_interface()
-patch_multimethod_extend()
+patch_multimethod_clone()
 
 
 class Token(object):
     '''
     Token implementation used with TokenParser.  Provides an abstraction of a lexeme
     as parsed from a stream, with optional line and column information.
-
-    Token types (subclasses) can be created by using the `Token.factory()` method. 
     '''
 
     def __init__(self, name, value=None, line=0, column=0):
@@ -48,6 +46,11 @@ class Token(object):
         return self.name.__hash__()
 
     def __eq__(self, other):
+        ''' 
+        Override to allow for hashing of this type, as well as equality with 
+        string types.  Equates `self.name` to other token names or string contents.
+        '''
+
         if isinstance(other, str):
             return str(self.name) == other
         if isinstance(other, unicode):
@@ -61,47 +64,130 @@ class Token(object):
         return Token(self.name, value, line, column)
 
 
-def match_token(value):
-    '''
-    Returns a match function that matches a single value or token against the head 
-    of the parse sequence.
-    '''
-
-    if not isinstance(value, Token):
-        value = Token(value)
-    def impl(tokens):
-        tok = tokens[0]
-        if tok == value:
-            return passed_match(1, (tok,))
-        return failed_match()
-    return impl
-
-
 class TokenParser(Parser):
     '''
-    Parser implementation for Token type streams.  Provides support for Token subclasses
-    as match expressions in the parser specification.
+    Parser implementation for Token type streams.  Provides properties for diagnostic
+    output based on the last parsed Token.
     '''
 
-    _compile_match = Parser._compile_match.extend()
+    _compile_match = Parser._compile_match.clone()
 
-    def _error(self, position, tokens, msg):
-        '''
-        Override for `Parser._error()`. Adds line and column information to error message.
-        '''
-        
-        tok = tokens[position]
-        msg = '({}, {}) {}'.format(tok.line, tok.column, msg) 
-        raise ParseError(position, tokens, msg)
-
-    @_compile_match.method(str)
-    @_compile_match.method(unicode)
-    def _compile_match_str(self, tok):
-        return match_token(tok)
-    
     @_compile_match.method(Token)
     def _compile_match_token(self, tok):
         def impl(tokens):
             other = tokens[0]
             if tok == other:
-                return passed_match(1, (other.value,))
+                return passed_match(1, (other,))
+            return failed_match()
+        return impl
+
+    @property
+    def line(self):
+        '''
+        Returns the current token line positiion.
+        '''
+
+        return self._tok.line if self._tok and hasattr(self._tok, 'line') else None
+    
+    @property
+    def column(self):
+        '''
+        Returns the current token column position.
+        '''
+
+        return self._tok.column if self._tok and hasattr(self._tok, 'column') else None
+
+    @property
+    def status(self):
+        '''
+        Returns a dict containing all the state values.  Suitable for use
+        with `str.format()` as kwargs.
+
+        Overidden to include `line` and `column` properties.
+        '''
+
+        result = super(TokenParser, self).status
+        keys = ['line', 'column']
+        result.update(dict(zip(keys, map(lambda x: getattr(self, x), keys))))
+        return result
+
+
+class TokenLexer(Parser):
+    '''
+    Lexer implementation that converts parsed input into a series of Token instances.
+
+    The tokens are available via `self.tokens` after a call to `parse()`.
+    '''
+
+    def reset(self):
+        '''
+        Override that resets Lexer properties as well as base class properties.
+        '''
+
+        super(TokenLexer, self).reset()
+        self._tokens = []
+        self._line = 1
+        self._column = 1
+    
+    def _token(self, value, token_type=Token):
+        '''
+        Predicate function that creates a new token of the given type for `value`.
+        '''
+
+        self._tokens.append(token_type(value, self._line, self._column))
+        self._column += len(value)
+
+    def _whitespace(self, value):
+        '''
+        Predicate function that increments the column count by value
+        '''
+
+        self._column += len(value)
+
+    def _newline(self, value):
+        '''
+        Predicate function that increments the line by one, and resets the column to 1.
+        '''
+
+        self._column = 1
+        self._line += 1
+
+    @property
+    def tokens(self):
+        '''
+        The list of all tokens parsed by this lexer.
+        '''
+
+        return self._tokens
+
+    @property
+    def line(self):
+        '''
+        Returns the current token line positiion.
+        '''
+
+        return self._line
+    
+    @property
+    def column(self):
+        '''
+        Returns the current token column position.
+        '''
+
+        return self._column
+
+    @property
+    def status(self):
+        '''
+        Returns a dict containing all the state values.  Suitable for use
+        with `str.format()` as kwargs.
+
+        Overidden to include `line` and `column` properties.
+        '''
+
+        result = super(TokenLexer, self).status
+        keys = ['line', 'column']
+        result.update(dict(zip(keys, map(lambda x: getattr(self, x), keys))))
+        return result
+
+

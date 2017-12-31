@@ -32,6 +32,8 @@ def pos_to_linecol(text, position=None):
 
 
 class LineColErrorMixin(object):
+    # TODO: wrap parse() and provide properties instead
+    
     def _error(self, position, state, tokens, msg, nested):
         line, col = pos_to_linecol(tokens, position)
         new_msg = '{} ({}, {}): Error at parse state "{}": {} ({})'.format(position, line, col, state, msg, tokens)

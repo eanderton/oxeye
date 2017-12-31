@@ -4,18 +4,19 @@ import unittest
 from oxeye.parser import *
 from tests.helpers import *
 
+# TODO: test parser continuation
 
 class TestParser(unittest.TestCase):
     def test_reset_custom_start(self):
         parser = Parser({}, 'foobar')
-        self.assertEqual(parser.start_state, 'foobar')
+        self.assertEqual(parser._start_state, 'foobar')
         self.assertEqual(parser.state, 'foobar')
         parser.reset()
         self.assertEqual(parser.state, 'foobar')
 
     def test_reset_default_start(self):
         parser = Parser({})
-        self.assertEqual(parser.start_state, 'goal')
+        self.assertEqual(parser._start_state, 'goal')
         self.assertEqual(parser.state, 'goal')
         parser.reset()
         self.assertEqual(parser.state, 'goal')

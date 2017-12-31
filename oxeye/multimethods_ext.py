@@ -3,8 +3,9 @@
 Multimethod extended support library
 '''
 
-from oxeye.multimethods import is_a, MultiMethod, Default
-
+from oxeye.multimethods import _copy_attrs, is_a, MultiMethod, Default
+import copy
+import inspect
 
 class CallableType(object):
     '''
@@ -12,6 +13,7 @@ class CallableType(object):
     used where type dispatch is desired to match on all callable types: classes,
     lambdas, and functions.
     '''
+
     def __repr__(self):
         return '<CallableType>'
 
@@ -20,30 +22,29 @@ Callable = CallableType()
 
 
 @is_a.method((object, CallableType))
-def _is_a_subclass(x, y):
+def _is_a_callable(x, y):
     '''
     Multimethod that allows `Callable` to be used on type dispatch with 
     '''
+    if inspect.isclass(x):
+        return callable(x.__dict__.get('__call__', None))
     return callable(x)
 
 
-def multimethod_extend(self, dispatch_func=None):
+def multimethod_clone(self):
     '''
-    Creates a new multimethod that extends this multimethod, by dispatching
-    to this multimethod on default.  
-    
-    Can be called using an optional dispatch function `dispatch_func` for 
-    the newly created multimethod.
+    Creates a new multimethod that is a clone of this multimethod.
     '''
-
-    mm = MultiMethod(self.__name__, dispatch_func or self.dispatchfn, self.pass_self)
-    mm.add_method(Default, lambda *a, **kw: self(*a, **kw))
-    return mm
+    return copy.deepcopy(self)
+    #mm = MultiMethod(self.__name__, self.dispatchfn, self.pass_self)
+    #mm.methods = copy.deepcopy(self.methods)
+    #mm.preferences = copy.deepcopy(self.preferences)
+    #return mm
 
 
-def patch_multimethod_extend():
+def patch_multimethod_clone():
     '''
-    Monkeypatches a `MultiMethod.extend` method.  See documentation for
-    `multimethod_extend()` for more information.
+    Monkeypatches a `MultiMethod.clone` method.  See documentation for
+    `multimethod_clone()` for more information.
     '''
-    MultiMethod.extend = multimethod_extend
+    MultiMethod.clone = multimethod_clone

@@ -8,11 +8,11 @@ from __future__ import unicode_literals, absolute_import
 
 import re
 from oxeye.multimethods import enable_descriptor_interface, singledispatch
-from oxeye.multimethods_ext import Callable, patch_multimethod_extend
+from oxeye.multimethods_ext import Callable, patch_multimethod_clone
 
 
 enable_descriptor_interface()
-patch_multimethod_extend()
+patch_multimethod_clone()
 
 
 def nop(*args, **kwargs):
@@ -112,14 +112,14 @@ class Parser(object):
 
         self.spec = {}
         self._start_state = start_state
-        try:
-            for self._state, tests in spec.iteritems():
-                self.spec[self._state] = []
-                for self._rule in range(len(tests)):
-                    self.spec[self._state].append(self._compile_rule(tests[self._rule]))
-        except CompileError as e:
-            e.state = state
-            raise
+        for self._state, tests in spec.iteritems():
+            self.spec[self._state] = []
+            for self._rule in range(len(tests)):
+                rule = self._compile_rule(tests[self._rule])
+                if not callable(rule):
+                    raise CompileError('Rule must compile to a callable object')
+                self.spec[self._state].append(rule)
+        # TODO: semantic checking of next_state validity
         self.reset()
 
 
@@ -152,6 +152,8 @@ class Parser(object):
 
         match_tok, predicate_fn, next_state = rule
         match_fn = self._compile_match(match_tok)
+        if not callable(match_fn):
+            raise CompileError('Rule match function must compile to a callable object')
         def impl(tokens):
             match_success, advance, predicate_args, predicate_kwargs = match_fn(tokens)
             if match_success:
@@ -191,6 +193,7 @@ class Parser(object):
         '''
         Returns the provided match callable as a match function.
         '''
+        assert(callable(tok))
         return tok
 
     @_compile_match.method(str)
@@ -239,7 +242,7 @@ class Parser(object):
                     self._state = next_state
                     break
                 self._rule += 1
-            else:
+            else:  # TODO: elif not partial  # partial matching support
                 raise ParseError('No match found')
 
     @property
@@ -378,7 +381,7 @@ class RexParser(Parser):
     This parser will only accept string type sequences.
     '''
 
-    _compile_match = Parser._compile_match.extend()
+    _compile_match = Parser._compile_match.clone()
 
     @_compile_match.method(str)
     @_compile_match.method(unicode)
@@ -389,6 +392,3 @@ class RexParser(Parser):
         if not isinstance(sequence, str) and not isinstance(sequence, unicode):
             raise Exception('RexParser expects string or buffer (got {} instead)'.format(type(sequence)))
         return super(RexParser, self).parse(sequence)
-
-
-
