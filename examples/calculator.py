@@ -2,8 +2,8 @@ from __future__ import unicode_literals, absolute_import
 
 from oxeye.token import Token, TokenParser, TokenLexer
 from oxeye.parser import Parser, RexParser, nop, err
-from oxeye.match import match_any, match_peek, match_rex, match_all
-#from oxeye.rule import rule_err, rule_next
+from oxeye.match import match_rex
+from oxeye.rule import rule_next, rule_fail
 
 class AST(object):
     '''
@@ -69,7 +69,10 @@ class ASTManager(object):
         self.head = self.root
         self.stack = []
 
-    # TODO: semantic evaluation by checking for stack depth
+    def semantic_pass(self):
+        if len(self.stack) != 0:
+            raise Exception('Expected one or more closing ")".')
+
 
 class RexCalculator(RexParser):
     '''
@@ -77,19 +80,20 @@ class RexCalculator(RexParser):
     All terminals and whitespace elimination are handled in the same pass,
     and matched explicitly using regular expressions.
     '''
+
     def __init__(self):
         self.ast = ASTManager()
         super(RexCalculator, self).__init__({
             'expression': (
                 (r'\s+', nop, 'expression'),
                 (r'-', self.ast.neg, 'sub_expression'),
-                (match_peek, nop, 'sub_expression'),
+                rule_next('sub_expression'),
             ),
             'sub_expression': (
                 (r'\s+', nop, 'sub_expression'),
                 (r'(\d+(?:\.\d+)?)', self.ast.arg, 'operation'),
                 (r'\(', self.ast.push_expr, 'expression'),
-                (match_any, err('Expected number or open-param'), None),
+                rule_fail('Expected number or open-param'),
             ),
             'operation': (
                 (r'\s+', nop, 'operation'),
@@ -98,7 +102,7 @@ class RexCalculator(RexParser):
                 (r'\*', self.ast.mul, 'expression'),
                 (r'/', self.ast.div, 'expression'),
                 (r'\)', self.ast.pop_expr, 'operation'),
-                (match_any, err('Expected numeric operation'), None),
+                rule_fail('Expected numeric operation'),
             ),
         }, start_state='expression')
 
@@ -108,6 +112,7 @@ class RexCalculator(RexParser):
 
     def parse(self, text):
         super(RexParser, self).parse(text)
+        self.ast.semantic_pass()
         return self.ast.root
 
 
@@ -138,7 +143,7 @@ class Lexer(TokenLexer):
                     '\n': (self._newline, 'goal'),
                 },
                 (match_rex(r'(\d+(?:\.\d+)?)'), self._token_as(tok_number), 'goal'),
-                (match_any, err('unexpected token'), None),
+                rule_fail('unexpected token'),
             ),
         })
 
@@ -161,14 +166,14 @@ class TokenCalculator(TokenParser):
         super(TokenCalculator, self).__init__({
             'expression': (
                 ('-', self.ast.neg, 'sub_expression'),
-                (match_peek, nop, 'sub_expression'),
+                rule_next('sub_expression'),
             ),
             'sub_expression': (
                 {
                     tok_number: (self.ast.arg, 'operation'),
                     '(': (self.ast.push_expr, 'expression'),
                 },
-                (match_any, err('Expected number or open-paren'), None),
+                rule_fail('Expected number or open-paren'),
             ),
             'operation': (
                 {
@@ -178,7 +183,7 @@ class TokenCalculator(TokenParser):
                     '/': (self.ast.div, 'expression'),
                     ')': (self.ast.pop_expr, 'operation'),
                 },
-                (match_any, err('Expected numeric operation'), None),
+                rule_fail('Expected numeric operation'),
             ),
         }, start_state='expression')
 
@@ -190,6 +195,5 @@ class TokenCalculator(TokenParser):
         lexer = Lexer()
         lexer.parse(text)
         super(TokenCalculator, self).parse(lexer.tokens)
+        self.ast.semantic_pass()
         return self.ast.root
-
-
