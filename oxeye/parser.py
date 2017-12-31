@@ -8,7 +8,7 @@ from __future__ import unicode_literals, absolute_import
 
 import re
 from oxeye.multimethods import enable_descriptor_interface, singledispatch
-from oxeye.multimethods_ext import Callable, patch_multimethod_clone
+from oxeye.multimethods_ext import *
 
 
 enable_descriptor_interface()
