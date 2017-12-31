@@ -103,7 +103,7 @@ class TokenParser(Parser):
 
         result = super(TokenParser, self).status
         keys = ['line', 'column']
-        result.update(dict(zip(keys, map(lambda x: getattr(self, x), keys))))
+        result.update({ x: getattr(self, x) for x in keys })
         return result
 
 
@@ -191,7 +191,7 @@ class TokenLexer(Parser):
 
         result = super(TokenLexer, self).status
         keys = ['line', 'column']
-        result.update(dict(zip(keys, map(lambda x: getattr(self, x), keys))))
+        result.update({ x: getattr(self, x) for x in keys })
         return result
 
 
