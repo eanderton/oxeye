@@ -304,7 +304,10 @@ class Parser(object):
         '''
 
         keys = ['pos', 'head', 'state', 'rule']
-        return dict(zip(keys, map(lambda x: getattr(self, x), keys)))
+        
+        return {x: getattr(self, x) for x in keys}
+
+      #  return dict(zip(keys, map(lambda x: getattr(self, x), keys)))
 
 
 def match_any(sequence):

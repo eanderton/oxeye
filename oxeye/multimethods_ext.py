@@ -58,10 +58,6 @@ def multimethod_clone(self):
     Creates a new multimethod that is a clone of this multimethod.
     '''
     return copy.deepcopy(self)
-    #mm = MultiMethod(self.__name__, self.dispatchfn, self.pass_self)
-    #mm.methods = copy.deepcopy(self.methods)
-    #mm.preferences = copy.deepcopy(self.preferences)
-    #return mm
 
 
 def patch_multimethod_clone():
