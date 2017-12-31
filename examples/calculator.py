@@ -69,6 +69,7 @@ class ASTManager(object):
         self.head = self.root
         self.stack = []
 
+    # TODO: semantic evaluation by checking for stack depth
 
 class RexCalculator(RexParser):
     '''
@@ -102,8 +103,8 @@ class RexCalculator(RexParser):
         }, start_state='expression')
 
     def reset(self):
-        self.ast.reset()
         super(RexParser, self).reset()
+        self.ast.reset()
 
     def parse(self, text):
         super(RexParser, self).parse(text)
@@ -116,8 +117,10 @@ tok_number = Token('number')
 class Lexer(TokenLexer):
     '''
     Lexer for TokenCalculator.  Seralizes a text stream into a list of tokens.
-    Line and column information is gathered and attached to tokens as they are generated. 
+    Line and column information is gathered and attached to tokens as they are 
+    generated. 
     '''
+
     def __init__(self):
         super(TokenLexer, self).__init__({
             'goal': (
@@ -145,7 +148,14 @@ class TokenCalculator(TokenParser):
     Example of a calculator that uses a Token stream and Token matching for parsing.
     Relies on the Lexer implementation in this module to generate the input Token
     stream from the provided text.
+
+    The tokenizer culls out whitespace, while converting numbers to discrete tokens.
+    This allows the parser to express a grammar that is focuses on everything else. 
+
+    Additionally, line and column information is made available via `status`, as 
+    the token sequence has that information built-in.
     '''
+
     def __init__(self):
         self.ast = ASTManager()
         super(TokenCalculator, self).__init__({

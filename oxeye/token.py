@@ -6,7 +6,7 @@ Oxeye Parser library for Token-based implementations.
 from __future__ import unicode_literals, absolute_import
 from oxeye.multimethods import enable_descriptor_interface, singledispatch
 from oxeye.multimethods_ext import Callable, patch_multimethod_clone
-from oxeye.parser import Parser, ParseError
+from oxeye.parser import Parser, ParseError, PositionMixin
 from oxeye.parser import match_head
 
 enable_descriptor_interface()
@@ -71,6 +71,7 @@ class TokenParser(Parser):
     output based on the last parsed Token.
     '''
 
+    _status_keys = Parser._status_keys + ['line', 'column']
     _compile_match = Parser._compile_match.clone()
 
     @_compile_match.method(Token)
@@ -93,27 +94,15 @@ class TokenParser(Parser):
 
         return self.head.column if self.head and hasattr(self.head, 'column') else None
 
-    @property
-    def status(self):
-        '''
-        Returns a dict containing all the state values.  Suitable for use
-        with `str.format()` as kwargs.
 
-        Overidden to include `line` and `column` properties.
-        '''
-
-        result = super(TokenParser, self).status
-        keys = ['line', 'column']
-        result.update({ x: getattr(self, x) for x in keys })
-        return result
-
-
-class TokenLexer(Parser):
+class TokenLexer(Parser, PositionMixin):
     '''
     Lexer implementation that converts parsed input into a series of Token instances.
 
     The tokens are available via `self._tokens` after a call to `parse()`.
     '''
+
+    _status_keys = Parser._status_keys + PositionMixin._position_status_keys
 
     def reset(self):
         '''
@@ -121,9 +110,8 @@ class TokenLexer(Parser):
         '''
 
         super(TokenLexer, self).reset()
+        self._reset_position()
         self._tokens = []
-        self._line = 1
-        self._column = 1
     
     def _token(self, value, token_type=Token):
         '''
@@ -142,21 +130,6 @@ class TokenLexer(Parser):
             return self._token(value, token_type)
         return impl
 
-    def _whitespace(self, value):
-        '''
-        Predicate function that increments the column count by value
-        '''
-
-        self._column += len(value)
-
-    def _newline(self, value):
-        '''
-        Predicate function that increments the line by one, and resets the column to 1.
-        '''
-
-        self._column = 1
-        self._line += 1
-
     @property
     def tokens(self):
         '''
@@ -164,35 +137,3 @@ class TokenLexer(Parser):
         '''
 
         return self._tokens
-
-    @property
-    def line(self):
-        '''
-        Returns the current token line positiion.
-        '''
-
-        return self._line
-    
-    @property
-    def column(self):
-        '''
-        Returns the current token column position.
-        '''
-
-        return self._column
-
-    @property
-    def status(self):
-        '''
-        Returns a dict containing all the state values.  Suitable for use
-        with `str.format()` as kwargs.
-
-        Overidden to include `line` and `column` properties.
-        '''
-
-        result = super(TokenLexer, self).status
-        keys = ['line', 'column']
-        result.update({ x: getattr(self, x) for x in keys })
-        return result
-
-

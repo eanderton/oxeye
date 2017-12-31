@@ -64,6 +64,7 @@ class Parser(object):
 
         self.spec = {}
         self._start_state = start_state
+	self._state_refs = {}
         for self._state, tests in spec.iteritems():
             self.spec[self._state] = []
             for self._rule in range(len(tests)):
@@ -71,7 +72,6 @@ class Parser(object):
                 if not callable(rule):
                     raise CompileError(self, 'Rule must compile to a callable object')
                 self.spec[self._state].append(rule)
-        # TODO: semantic checking of next_state validity
         self.reset()
 
 
@@ -122,7 +122,6 @@ class Parser(object):
         tuple as a result.
         '''
 
-        # TODO: semantic pass on rule_dict
         def impl(sequence):
             head = sequence[0]
             rule = rule_dict.get(head, None)
@@ -245,6 +244,8 @@ class Parser(object):
 
         return self._rule
 
+    _status_keys = ['pos', 'head', 'state', 'rule']
+
     @property
     def status(self):
         '''
@@ -252,8 +253,7 @@ class Parser(object):
         with `str.format()` as kwargs.
         '''
 
-        keys = ['pos', 'head', 'state', 'rule']
-        return { x: getattr(self, x) for x in keys }
+        return { x: getattr(self, x) for x in self._status_keys }
 
 
 class RexParser(Parser):
@@ -269,12 +269,71 @@ class RexParser(Parser):
     _compile_match = Parser._compile_match.clone()
 
     @_compile_match.method(String)
-    #@_compile_match.method(str)
-    #@_compile_match.method(unicode)
     def _compile_match_rex(self, tok):
         return match_rex(tok)
 
     def parse(self, sequence):
         if not isinstance(sequence, str) and not isinstance(sequence, unicode):
             raise Exception('RexParser expects string or buffer (got {} instead)'.format(type(sequence)))
-        return super(RexParser, self).parse(sequence)
+
+
+class PositionMixin(object):
+    '''
+    Parser mixin class to support line and column handling.
+
+    Integration will require calling the mixin methods directly
+    from the desired points in the child class.  Two predicate
+    functions, `_whitespace` and `_newline` are provided to 
+    allow a suitably configured grammar to manipulate the current
+    line and column positions appropriately.
+
+    >>> class MyParser(Parser, PositionMixin):
+    >>>     _status_keys = Parser._status_keys + PositionMixin._position_status_keys
+    >>>
+    >>>     def reset(self):
+    >>>         result = super(MyParser, self).reset()
+    >>>         self._reset_position
+    '''
+
+    _position_status_keys = ['line', 'column']
+
+    def _reset_position(self):
+        '''
+            Resets the line and column 
+        '''
+
+        self._line = 1
+        self._column = 1
+
+    def _whitespace(self, value):
+        '''
+        Predicate function that increments the column count by value
+        '''
+
+        self._column += len(value)
+
+    def _newline(self, value):
+        '''
+        Predicate function that increments the line by one, and resets the column to 1.
+        '''
+
+        self._column = 1
+        self._line += 1
+
+    @property
+    def line(self):
+        '''
+        Returns the current token line positiion.
+        '''
+
+        return self._line
+    
+    @property
+    def column(self):
+        '''
+        Returns the current token column position.
+        '''
+
+        return self._column
+
+
