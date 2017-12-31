@@ -70,18 +70,3 @@ def _is_a_string(x, y):
     Multimethod that allows `String` to be used on type dispatch with 
     '''
     return x is str or x is unicode
-
-
-def multimethod_clone(self):
-    '''
-    Creates a new multimethod that is a clone of this multimethod.
-    '''
-    return copy.deepcopy(self)
-
-
-def patch_multimethod_clone():
-    '''
-    Monkeypatches a `MultiMethod.clone` method.  See documentation for
-    `multimethod_clone()` for more information.
-    '''
-    MultiMethod.clone = multimethod_clone

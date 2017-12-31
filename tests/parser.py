@@ -1,6 +1,7 @@
 from __future__ import unicode_literals, absolute_import
 
 import unittest
+import copy
 from oxeye.parser import *
 from oxeye.match import *
 from tests.helpers import *
@@ -34,7 +35,7 @@ class TestParserCompile(unittest.TestCase):
     def test_invalid_rule_compile(self):
         with self.assertRaises(CompileError) as ctx:
             class BadParser(Parser):
-                _compile_rule = Parser._compile_rule.clone()
+                _compile_rule = copy.deepcopy(Parser._compile_rule)
                 
                 @_compile_rule.method(unicode)
                 @_compile_rule.method(str)
@@ -63,7 +64,7 @@ class TestParserCompile(unittest.TestCase):
     def test_invalid_match_compile(self):
         with self.assertRaises(CompileError) as ctx:
             class BadParser(Parser):
-                _compile_match = Parser._compile_match.clone()
+                _compile_match = copy.deepcopy(Parser._compile_match)
                 
                 @_compile_match.method(int)
                 def _compile_rule_str(self, rule):

@@ -8,13 +8,12 @@ from __future__ import unicode_literals, absolute_import
 
 import re
 from oxeye.multimethods import enable_descriptor_interface, singledispatch
-from oxeye.multimethods_ext import Callable, String, patch_multimethod_clone
+from oxeye.multimethods_ext import Callable, String
 from oxeye.match import match_head, match_rex
 from oxeye.rule import failed_rule, passed_rule
 from oxeye.pred import *
 
 enable_descriptor_interface()
-patch_multimethod_clone()
 
 
 class ParseError(Exception):
@@ -266,7 +265,9 @@ class RexParser(Parser):
     This parser will only accept string type sequences.
     '''
 
-    _compile_match = Parser._compile_match.clone()
+    @singledispatch
+    def _compile_match(self, *args, **kwargs):
+        return super(RexParser, self)._compile_match(*args, **kwargs)
 
     @_compile_match.method(String)
     def _compile_match_rex(self, tok):
@@ -335,5 +336,4 @@ class PositionMixin(object):
         '''
 
         return self._column
-
 

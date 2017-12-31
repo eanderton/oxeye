@@ -4,13 +4,13 @@ Oxeye Parser library for Token-based implementations.
 '''
 
 from __future__ import unicode_literals, absolute_import
+
 from oxeye.multimethods import enable_descriptor_interface, singledispatch
-from oxeye.multimethods_ext import Callable, patch_multimethod_clone
+from oxeye.multimethods_ext import Callable
 from oxeye.parser import Parser, ParseError, PositionMixin
 from oxeye.parser import match_head
 
 enable_descriptor_interface()
-patch_multimethod_clone()
 
 
 class Token(object):
@@ -72,7 +72,10 @@ class TokenParser(Parser):
     '''
 
     _status_keys = Parser._status_keys + ['line', 'column']
-    _compile_match = Parser._compile_match.clone()
+
+    @singledispatch
+    def _compile_match(self, *args, **kwargs):
+        return super(TokenParser, self)._compile_match(*args, **kwargs)
 
     @_compile_match.method(Token)
     def _compile_match_token(self, tok):
