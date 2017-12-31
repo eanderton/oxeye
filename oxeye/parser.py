@@ -268,9 +268,9 @@ class RexParser(Parser):
 
     _compile_match = Parser._compile_match.clone()
 
-    #TODO: @_compile_match.method(String)
-    @_compile_match.method(str)
-    @_compile_match.method(unicode)
+    @_compile_match.method(String)
+    #@_compile_match.method(str)
+    #@_compile_match.method(unicode)
     def _compile_match_rex(self, tok):
         return match_rex(tok)
 
