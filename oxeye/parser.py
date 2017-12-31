@@ -200,8 +200,7 @@ class Parser(object):
         '''
         return fn
 
-    @_compile_match.method(str)
-    @_compile_match.method(unicode)
+    @_compile_match.method(String)
     def _compile_match_str(self, value):
         '''
         Returns a match function for string and unicode values.

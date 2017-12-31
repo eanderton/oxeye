@@ -31,6 +31,28 @@ def _is_a_callable(x, y):
     return callable(x)
 
 
+class StringType(object):
+    '''
+    String pseudo-type for multimethods.  The `String` instance may be used
+    where type dispatch is desired to match on all string types: str, 
+    and unicode.
+    '''
+
+    def __repr__(self):
+        return '<StringType>'
+
+
+String = StringType()
+
+
+@is_a.method((object, StringType))
+def _is_a_string(x, y):
+    '''
+    Multimethod that allows `String` to be used on type dispatch with 
+    '''
+    return x is str or x is unicode
+
+
 def multimethod_clone(self):
     '''
     Creates a new multimethod that is a clone of this multimethod.
