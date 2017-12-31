@@ -2,6 +2,7 @@ from __future__ import unicode_literals, absolute_import
 
 import unittest
 from oxeye.parser import *
+from oxeye.match import *
 from tests.helpers import *
 
 # TODO: test parser continuation

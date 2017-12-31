@@ -1,8 +1,9 @@
 from __future__ import unicode_literals, absolute_import
 
 from oxeye.token import Token, TokenParser, TokenLexer
-from oxeye.parser import (Parser, RexParser, nop, err, 
-                          match_any, match_peek, match_rex, match_all)
+from oxeye.parser import Parser, RexParser, nop, err
+from oxeye.match import match_any, match_peek, match_rex, match_all
+#from oxeye.rule import rule_err, rule_next
 
 class AST(object):
     '''
@@ -69,7 +70,7 @@ class ASTManager(object):
         self.stack = []
 
 
-class RexCalculator(object):
+class RexCalculator(RexParser):
     '''
     Example of a calculator that uses the RexParser as a basis for parsing.  
     All terminals and whitespace elimination are handled in the same pass,
@@ -77,44 +78,35 @@ class RexCalculator(object):
     '''
     def __init__(self):
         self.ast = ASTManager()
-        self.parser = RexParser({
-            'ws_expression': (
-                (r'\s+', nop, 'expression'),
-                (match_peek, nop, 'expression'),
-            ),
+        super(RexCalculator, self).__init__({
             'expression': (
-                (r'-', self.ast.neg, 'ws_sub_expression'),
-                (match_peek, nop, 'ws_sub_expression'),
-            ),
-            'ws_sub_expression': (
-                (r'\s+', nop, 'sub_expression'),
+                (r'\s+', nop, 'expression'),
+                (r'-', self.ast.neg, 'sub_expression'),
                 (match_peek, nop, 'sub_expression'),
             ),
             'sub_expression': (
-                (r'(\d+(?:\.\d+)?)', self.ast.arg, 'ws_operation'),
-                (r'\(', self.ast.push_expr, 'ws_expression'),
+                (r'\s+', nop, 'sub_expression'),
+                (r'(\d+(?:\.\d+)?)', self.ast.arg, 'operation'),
+                (r'\(', self.ast.push_expr, 'expression'),
                 (match_any, err('Expected number or open-param'), None),
             ),
-            'ws_operation': (
-                (r'\s+', nop, 'operation'),
-                (match_peek, nop, 'operation'),
-            ),
             'operation': (
-                (r'\+', self.ast.add, 'ws_expression'),
-                (r'-', self.ast.sub, 'ws_expression'),
-                (r'\*', self.ast.mul, 'ws_expression'),
-                (r'/', self.ast.div, 'ws_expression'),
-                (r'\)', self.ast.pop_expr, 'ws_operation'),
+                (r'\s+', nop, 'operation'),
+                (r'\+', self.ast.add, 'expression'),
+                (r'-', self.ast.sub, 'expression'),
+                (r'\*', self.ast.mul, 'expression'),
+                (r'/', self.ast.div, 'expression'),
+                (r'\)', self.ast.pop_expr, 'operation'),
                 (match_any, err('Expected numeric operation'), None),
             ),
-        }, start_state='ws_expression')
+        }, start_state='expression')
 
     def reset(self):
         self.ast.reset()
-        self.parser.reset()
+        super(RexParser, self).reset()
 
     def parse(self, text):
-        self.parser.parse(text)
+        super(RexParser, self).parse(text)
         return self.ast.root
 
 

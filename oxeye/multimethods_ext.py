@@ -3,7 +3,7 @@
 Multimethod extended support library
 '''
 
-from oxeye.multimethods import _copy_attrs, is_a, MultiMethod, Default
+from oxeye.multimethods import is_a, MultiMethod, Default
 import copy
 import inspect
 

@@ -1,2 +1,1 @@
-from oxeye.parser import *
 

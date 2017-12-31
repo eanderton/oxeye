@@ -1,6 +1,7 @@
 from __future__ import unicode_literals, absolute_import
 
-from oxeye.parser import Parser, match_any
+from oxeye.parser import Parser
+from oxeye.match import match_any
 
 class LineColTranslator(object):
     def __init__(self):

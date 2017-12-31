@@ -6,7 +6,8 @@ Oxeye Parser library for Token-based implementations.
 from __future__ import unicode_literals, absolute_import
 from oxeye.multimethods import enable_descriptor_interface, singledispatch
 from oxeye.multimethods_ext import Callable, patch_multimethod_clone
-from oxeye.parser import Parser, ParseError, match_head
+from oxeye.parser import Parser, ParseError
+from oxeye.parser import match_head
 
 enable_descriptor_interface()
 patch_multimethod_clone()

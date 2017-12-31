@@ -1,8 +1,8 @@
 from __future__ import unicode_literals, absolute_import
 
 import unittest
-from oxeye.parser import nop
-from oxeye.token import *
+from oxeye.token import Token, TokenParser, TokenLexer
+from oxeye.pred import nop
 from tests.helpers import *
 
 

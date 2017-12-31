@@ -8,30 +8,13 @@ from __future__ import unicode_literals, absolute_import
 
 import re
 from oxeye.multimethods import enable_descriptor_interface, singledispatch
-from oxeye.multimethods_ext import *
-#from oxeye.match import *
-#from oxeye.rule import *
-#from oxeye.pred import *
+from oxeye.multimethods_ext import Callable, String, patch_multimethod_clone
+from oxeye.match import match_head, match_rex
+from oxeye.rule import failed_rule, passed_rule
+from oxeye.pred import *
 
 enable_descriptor_interface()
 patch_multimethod_clone()
-
-
-def nop(*args, **kwargs):
-    '''
-    Predicate function that does nothing. Intended for do-nothing terminals in a DFA spec.
-    '''
-    pass 
-
-
-def err(message):
-    '''
-    Predicate function that emits an exception for `message`.
-    '''
-    def impl(*args, **kwargs):
-        raise Exception(message)
-    return impl
-
 
 
 class ParseError(Exception):
@@ -53,25 +36,6 @@ class CompileError(Exception):
     def __init__(self, parser, *args, **kwargs):
         super(CompileError, self).__init__(*args, **kwargs)
         self.parser = parser
-
-
-def failed_rule():
-    '''
-    Returns a rule tuple for a failed rule match.
-    '''
-
-    return (False, 0, None)
-
-
-def passed_rule(advance, next_state):
-    '''
-    Returns a rule tuple for a successful rule match.  The advance argument
-    instructs the parser to advance by as many tokens, as though they were
-    consumed by the operation.  The next_state insructs the parser to
-    match the next token on the given state.
-    '''
-
-    return (True, advance, next_state)
 
 
 class Parser(object):
@@ -304,6 +268,7 @@ class RexParser(Parser):
 
     _compile_match = Parser._compile_match.clone()
 
+    #TODO: @_compile_match.method(String)
     @_compile_match.method(str)
     @_compile_match.method(unicode)
     def _compile_match_rex(self, tok):
