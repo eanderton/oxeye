@@ -36,24 +36,19 @@ class ParseError(Exception):
     '''
     Base error type for parse related errors.  May optionally include a nested
     exception if another exception was the cause for the error.
-    '''
 
-    def __init__(self, position, state, text, message, nested_exception=None):
-        self.position = position
-        self.state = state
-        self.text = text
-        self.nested_exception = nested_exception
-        Exception.__init__(self, message)
+    See the parser `status` property for additional error context.
+    '''
+    pass
 
 
 class CompileError(Exception):
     '''
     Error type for compilation-based errors.
+    
+    See the parser `status` property for additional error context.
     '''
-
-    def __init__(self, subject=None, state=None):
-        self.subject = subject
-        self.state = state
+    pass
 
 
 def failed_match():
@@ -110,13 +105,18 @@ class Parser(object):
         way of type-matching   Tuples, Dicts, and callables are valid 
         rule types, each with their own special use cases and idioms.  The set of 
         supported dispatch types may be expanded by augmenting or extending these
-          See the module documentation for more information on rules.
+        multimethods.
+
+        See the module documentation for more information on rules.
         '''
+
         self.spec = {}
-        self.start_state = start_state
+        self._start_state = start_state
         try:
-            for state, tests in spec.iteritems():
-                self.spec[state] = map(self._compile_rule, tests)
+            for self._state, tests in spec.iteritems():
+                self.spec[self._state] = []
+                for self._rule in range(len(tests)):
+                    self.spec[self._state].append(self._compile_rule(tests[self._rule]))
         except CompileError as e:
             e.state = state
             raise
@@ -202,17 +202,9 @@ class Parser(object):
 
         def impl(tokens):
             if tokens[0] == tok:
-                return passed_match(1, (tok,))
+                return passed_match(1, (tokens[0],))
             return failed_match()
         return impl
-
-    def _error(self, position, state, tokens, msg, nested):
-        '''
-        Raises an error.  This method is used by `parse()`, and should be
-        overridden if different error generation behavior is desired.
-        '''
-
-        raise ParseError(position, state, tokens, msg, nested)
 
     def reset(self):
         '''
@@ -220,31 +212,77 @@ class Parser(object):
         parse state.
         '''
 
-        self.state = self.start_state
+        self._state = self._start_state
+        self._pos = 0
+        self._seq = []
+        self._rule = 0
 
-    def parse(self, tokens, state_override=None):
+    def parse(self, sequence=None, state=None, position=0):
         '''
-        Parses over tokens, using the curent state machine configuration.  The
+        Parses `sequence`, using the curent state machine configuration.  The
         parser will attempt to match all tokens in `tokens`, running to exhasution.
         Failure to exhaust all tokens will result in an error.
 
-        This may be called using an alternate starting state, `state_override`,
-        than the one configured in the constructor.  
+        This may be called using an alternate starting state, `state`,
+        than the one configured in the constructor. 
         '''
-        self.state = state_override or self.state
-        position = 0
-        try:
-            while position < len(tokens):
-                for test_fn in self.spec[self.state]:
-                    success, advance, next_state = test_fn(tokens[position:])
-                    if success:
-                        position += advance
-                        self.state = next_state
-                        break
-                else:
-                    self._error(position, self.state, tokens, 'No match found', None)
-        except Exception as e:
-            self._error(position, self.state, tokens, unicode(e), e)
+        self._state = state or self._state
+        self._pos = position or self._pos
+        self._seq = sequence or self._seq
+        while self._pos < len(self._seq):
+            self._rule = 0
+            for rule_fn in self.spec[self._state]:
+                sub_sequence = self._seq[self._pos:]
+                success, advance, next_state = rule_fn(sub_sequence)
+                if success:
+                    self._pos += advance
+                    self._state = next_state
+                    break
+                self._rule += 1
+            else:
+                raise ParseError('No match found')
+
+    @property
+    def pos(self):
+        '''
+        Returns a string for the current position of the parser.
+        '''
+
+        return self._pos
+
+    @property
+    def tok(self):
+        '''
+        Returns the token at the current position of the parser.
+        '''
+
+        return self._seq[self._pos] if self._pos < len(self._seq) else None
+
+    @property
+    def state(self):
+        '''
+        Returns the current state of the parser.
+        '''
+
+        return self._state
+
+    @property
+    def rule(self):
+        '''
+        Returns the rule index within the current state of the parser
+        '''
+
+        return self._rule
+
+    @property
+    def status(self):
+        '''
+        Returns a dict containing all the state values.  Suitable for use
+        with `str.format()` as kwargs.
+        '''
+
+        keys = ['pos', 'tok', 'state', 'rule']
+        return dict(zip(keys, map(lambda x: getattr(self, x), keys)))
 
 
 def match_any(tokens):
@@ -349,7 +387,7 @@ class RexParser(Parser):
 
     def parse(self, sequence):
         if not isinstance(sequence, str) and not isinstance(sequence, unicode):
-            raise Exception('Unsupported sequence type: {}'.format(type(sequence)))
+            raise Exception('RexParser expects string or buffer (got {} instead)'.format(type(sequence)))
         return super(RexParser, self).parse(sequence)
 
 

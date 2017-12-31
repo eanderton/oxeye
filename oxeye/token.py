@@ -85,14 +85,14 @@ class TokenParser(Parser):
 
     _compile_match = Parser._compile_match.extend()
 
-    def _error(self, position, state, tokens, msg, nested):
+    def _error(self, position, tokens, msg):
         '''
         Override for `Parser._error()`. Adds line and column information to error message.
         '''
         
         tok = tokens[position]
         msg = '({}, {}) {}'.format(tok.line, tok.column, msg) 
-        raise ParseError(position, state, tokens, msg, nested)
+        raise ParseError(position, tokens, msg)
 
     @_compile_match.method(str)
     @_compile_match.method(unicode)
@@ -105,5 +105,3 @@ class TokenParser(Parser):
             other = tokens[0]
             if tok == other:
                 return passed_match(1, (other.value,))
-            return failed_match()
-        return impl

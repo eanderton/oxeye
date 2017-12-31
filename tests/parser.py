@@ -22,49 +22,55 @@ class TestParser(unittest.TestCase):
 
 
 class TestParserError(unittest.TestCase):
-    def test_error_ctor(self):
-        err = ParseError(0, 'foo', 'bar', 'baz')
-        self.assertEqual(err.position, 0)
-        self.assertEqual(err.state, 'foo')
-        self.assertEqual(err.text, 'bar')
-        self.assertEqual(err.message, 'baz')
-        self.assertIsNone(err.nested_exception)
-        
-    def test_error_ctor_nested(self):
-        nested = Exception('nested')
-        err = ParseError(0, 'foo', 'bar', 'baz', nested)
-        self.assertEqual(err.position, 0)
-        self.assertEqual(err.state, 'foo')
-        self.assertEqual(err.text, 'bar')
-        self.assertEqual(err.message, 'baz')
-        self.assertIs(err.nested_exception, nested)
-
-    def test_parse_error(self):
-        nested = Exception('test')
+    def setUp(self):
         def throw_fn(value):
-            raise nested
+            raise Exception('test')
 
-        p = Parser({
+        self.parser = Parser({
             'goal': (
                 (match_str('foo'), throw_fn, 'goal'),
                 (match_str('baz'), err('failure'), 'goal'),
             )
         })
 
+    def test_error_ctor(self):
+        err = ParseError('foobar')
+        self.assertEqual(err.message, 'foobar')
+        
+    def test_parse_error1(self):
         with self.assertRaises(ParseError) as ctx:
-            p.parse('bar')
+            self.parser.parse('bar')
         e = ctx.exception
+        self.assertEquals(self.parser.status, {
+            'pos': 0,
+            'tok': 'b',
+            'state': 'goal',
+            'rule': 2,
+        })
         self.assertEquals(e.message, 'No match found')
 
-        with self.assertRaises(ParseError) as ctx:
-            p.parse('foo')
+    def test_parse_error2(self):
+        with self.assertRaises(Exception) as ctx:
+            self.parser.parse('foo')
         e = ctx.exception
+        self.assertEquals(self.parser.status, {
+            'pos': 0,
+            'tok': 'f',
+            'state': 'goal',
+            'rule': 0,
+        })
         self.assertEquals(e.message, 'test')
-        self.assertEquals(e.nested_exception, nested)
         
-        with self.assertRaises(ParseError) as ctx:
-            p.parse('baz')
+    def test_parse_error3(self):
+        with self.assertRaises(Exception) as ctx:
+            self.parser.parse('baz')
         e = ctx.exception
+        self.assertEquals(self.parser.status, {
+            'pos': 0,
+            'tok': 'b',
+            'state': 'goal',
+            'rule': 1,
+        })
         self.assertEquals(e.message, 'failure')
 
 
