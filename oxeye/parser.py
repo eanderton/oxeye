@@ -7,8 +7,6 @@ discrete state machines for parsing text or a token stream.
 from __future__ import unicode_literals, absolute_import
 
 import re
-import copy
-import inspect
 from oxeye.multimethods import enable_descriptor_interface, singledispatch
 from oxeye.multimethods_ext import Callable, patch_multimethod_extend
 
@@ -32,54 +30,6 @@ def err(msg):
         raise Exception(msg)
     return impl
 
-
-class Token(object):
-    '''
-    Token implementation used with TokenParser.  Provides an abstraction of a lexeme
-    as parsed from a stream, with optional line and column information.
-
-    Token types (subclasses) can be created by using the `Token.factory()` method. 
-    '''
-
-    def __init__(self, name, value=None, line=0, column=0):
-        '''
-        Token constructor.  Specifies a token instance with a given name, value, and
-        optional line and column information.
-        '''
-
-        self.name = name
-        self.value = value or name
-        self.line = line
-        self.column = column
-
-    def __str__(self):
-        '''
-        String representation of the token.  Used for debugging.
-        '''
-
-        return 'Token({}, {}, {}, {})'.format(self.name, self.value, self.line, self.column)
-
-    __unicode__ = __str__
-
-    def __hash__(self):
-        '''
-        Override for hash magic to allow tokens to match to string names, and to
-        allow value-oriented tokens to match cleanly.
-        '''
-        return self.name.__hash__()
-
-    def __eq__(self, other):
-        if isinstance(other, str):
-            return str(self.name) == other
-        if isinstance(other, unicode):
-            return unicode(self.name) == other
-        return self.name == other.name
-
-    def __call__(self, value=None, line=0, column=0):
-        '''
-        Returns a new token that shares the same name as self.
-        '''
-        return Token(self.name, value, line, column)
 
 
 class ParseError(Exception):
@@ -328,24 +278,16 @@ def match_set(value_set):
     return impl
 
 
-def match_token(value):
-    value_tok = Token(value)
-    def impl(tokens):
-        tok = tokens[0]
-        if tok == value_tok:
-            return passed_match(1, (tok,))
-        return failed_match()
-    return impl
-
-def match_all(tokens):
+def match_all(seq):
     '''
-    Matches against all remaining input tokens and passes them to the predicate.
-    May also be used in conjunction with `nop` to exhasut the parser.
+    Matches against the entire sequence and passes it to the predicate.
+    May also be used in conjunction with `nop` to exhaust the parser.
     '''
 
-    return passed_match(len(tokens), (tokens,))
+    return passed_match(len(seq), (seq,))
 
 
+# TODO: change to head match
 def match_str(tok):
     '''
     Match function that matches a string against multiple successive character
@@ -359,6 +301,7 @@ def match_str(tok):
         return failed_match()
     return impl
 
+# TODO: change to subsequence match
 def match_multi(*values):
     values_len = len(values)
     def impl(tokens):
@@ -367,11 +310,15 @@ def match_multi(*values):
         return failed_match()
     return impl
 
+
 def match_rex(expr):
     '''
     Match function that matches a regular expression against multiple character
     tokens.  The resulting groups and groupdict are passed to the predicate
     as *args and **kwargs, respectively, if there's a match.
+ 
+    NOTE: will only work with sequeneces of type 'str' and 'unicode', as the entire
+    sequence is passed directly to a compiled regex type (see `re` library).
     '''
 
     rex = re.compile(expr)
@@ -386,6 +333,11 @@ def match_rex(expr):
 class RexParser(Parser):
     '''
     Parser implementation that treats all string match types as regular expressions.
+
+    Overrides the match function compilation for `str` and `unicode` and maps them
+    both to `match_rex()`.
+
+    This parser will only accept string type sequences.
     '''
 
     _compile_match = Parser._compile_match.extend()
@@ -395,34 +347,10 @@ class RexParser(Parser):
     def _compile_match_rex(self, tok):
         return match_rex(tok)
 
+    def parse(self, sequence):
+        if not isinstance(sequence, str) and not isinstance(sequence, unicode):
+            raise Exception('Unsupported sequence type: {}'.format(type(sequence)))
+        return super(RexParser, self).parse(sequence)
 
-class TokenParser(Parser):
-    '''
-    Parser implementation for Token type streams.  Provides support for Token subclasses
-    as match expressions in the parser specification.
-    '''
 
-    _compile_match = Parser._compile_match.extend()
 
-    def _error(self, position, state, tokens, msg, nested):
-        '''
-        Override for `Parser._error()`. Adds line and column information to error message.
-        '''
-        
-        tok = tokens[position]
-        msg = '({}, {}) {}'.format(tok.line, tok.column, msg) 
-        raise ParseError(position, state, tokens, msg, nested)
-
-    @_compile_match.method(str)
-    @_compile_match.method(unicode)
-    def _compile_match_str(self, tok):
-        return match_token(tok)
-    
-    @_compile_match.method(Token)
-    def _compile_match_token(self, tok):
-        def impl(tokens):
-            other = tokens[0]
-            if tok == other:
-                return passed_match(1, (other.value,))
-            return failed_match()
-        return impl

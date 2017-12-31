@@ -2,7 +2,8 @@ from __future__ import unicode_literals, absolute_import
 
 import unittest
 from tests.helpers import *
-from oxeye.parser import Token, ParseError
+from oxeye.parser import ParseError
+from oxeye.token import Token
 from examples.calculator import Lexer, RexCalculator, TokenCalculator
 
 
