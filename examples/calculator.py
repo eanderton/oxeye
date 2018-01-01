@@ -1,9 +1,17 @@
+# -*- coding: utf-8 -*-
+'''
+Calculator parser and evaluator examples.  A regular-expression
+and lexer+parser based implementation are both provided to
+contrast the variety of approches enabled by Oxeye.
+'''
+
 from __future__ import unicode_literals, absolute_import
 
 from oxeye.token import Token, TokenParser, TokenLexer
 from oxeye.parser import Parser, RexParser, nop, err
 from oxeye.match import match_rex
 from oxeye.rule import rule_next, rule_fail, rule_end
+
 
 class AST(object):
     '''
@@ -200,3 +208,15 @@ class TokenCalculator(TokenParser):
         super(TokenCalculator, self).parse(lexer.tokens)
         self.ast.semantic_pass()
         return self.ast.root
+
+
+if __name__ == '__main__':
+    import sys
+    if len(sys.argv) == 1:
+        'Useage: {} <algebreic expression>'.format(sys.argv[0])
+        sys.exit(1)
+
+    expr = sys.argv[1]
+    print 'Regular Expression Result: ', RexCalculator().parse(expr).eval()
+    print 'Tokenzied Result: ', TokenCalculator().parse(expr).eval()
+    sys.exit(0)
