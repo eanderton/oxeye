@@ -3,6 +3,7 @@ from __future__ import unicode_literals, absolute_import
 import unittest
 from oxeye.token import Token, TokenParser, TokenLexer
 from oxeye.pred import nop
+from oxeye.rule import rule_end
 from tests.helpers import *
 
 
@@ -98,8 +99,11 @@ class TestTokenParser(unittest.TestCase):
 
         p = TokenParser({
             'goal': (
-                (Token('foo'), result_pred, 'goal'),
-            )
+                (Token('foo'), result_pred, 'end'),
+            ),
+            'end': (
+                rule_end,
+            ),
         })
         self.assertTrue(p.parse([Token('foo')]))
         

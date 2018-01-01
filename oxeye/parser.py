@@ -8,9 +8,9 @@ from __future__ import unicode_literals, absolute_import
 
 import re
 from oxeye.multimethods import enable_descriptor_interface, singledispatch
-from oxeye.multimethods_ext import Callable, String
+from oxeye.multimethods_ext import Singleton, Callable, String
 from oxeye.match import match_head, match_rex
-from oxeye.rule import failed_rule, passed_rule
+from oxeye.rule import failed_rule, passed_rule, rule_end
 from oxeye.pred import *
 
 enable_descriptor_interface()
@@ -37,6 +37,18 @@ class CompileError(Exception):
         self.parser = parser
 
 
+class _EndState(Singleton):
+    '''
+    Representation of an 'end state' for a Parser.  Implemented
+    as a singleton to avoid issues with cross-module imports.
+    '''
+
+    pass
+
+
+EndState = _EndState()
+
+
 class Parser(object):
     '''
     Core parser class.  Implements a token based parser based on a provided parser
@@ -44,9 +56,11 @@ class Parser(object):
     may be any indexable type, including `str` or `unicode`.
 
     '''
+    
+    _status_keys = ['pos', 'head', 'state', 'rule']
 
-    # TODO implement end states
-    def __init__(self, spec, start_state='goal'):
+
+    def __init__(self, spec, start_state='goal', end_state=_EndState()):
         '''
         Parser constructor.  Builds a parser around the `spec` state machine that 
         is a dictionary of state to rule-set mappings.  An optional `start_state`
@@ -61,9 +75,13 @@ class Parser(object):
         See the module documentation for more information on rules.
         '''
 
-        self.spec = {}
+        self.spec = {
+            end_state: [ rule_end ],
+        }
         self._start_state = start_state
 	self._state_refs = {}
+
+        # main processing loop
         for self._state, tests in spec.iteritems():
             self.spec[self._state] = []
             for self._rule in range(len(tests)):
@@ -122,6 +140,8 @@ class Parser(object):
         '''
 
         def impl(sequence):
+            if len(sequence) == 0:
+                return failed_rule()
             head = sequence[0]
             rule = rule_dict.get(head, None)
             if rule:
@@ -182,19 +202,21 @@ class Parser(object):
         raise ParseError if it cannot match a rule against the sequence in the
         current state.
 
-        Providing `sequence` will parse against the provided sequence, starting
+        Passing `sequence` will parse against the provided sequence, starting
         at the current position and state.
 
-        Providing `state` will start the parse at the provided state instead of 
+        Passing `state` will start the parse at the provided state instead of 
         the current state.
 
-        Providing `position` will start the parse at the provided position in the
+        Passing `position` will start the parse at the provided position in the
         sequence instead of the current position.
         '''
 
         self._state = state or self._state
         self._pos = position or self._pos
         self._seq = sequence or self._seq
+        
+        # walk through the state machine starting at state+pos+sequence
         while self._pos < len(self._seq):
             self._rule = 0
             for rule_fn in self.spec[self._state]:
@@ -209,7 +231,17 @@ class Parser(object):
                 if exhaustive:  
                     raise ParseError('No match found')
                 return False
-        return True
+
+        # exit the state machine, and avoid 'end' matching 
+        if not exhaustive:
+            return True
+
+        # match 'end' token (empty sequence) in current state
+        for rule_fn in self.spec[self._state]:
+            success, _, next_state = rule_fn([])
+            if success:
+                return True
+        raise ParseError('No match found at end of input')
 
     @property
     def pos(self):
@@ -242,8 +274,6 @@ class Parser(object):
         '''
 
         return self._rule
-
-    _status_keys = ['pos', 'head', 'state', 'rule']
 
     @property
     def status(self):

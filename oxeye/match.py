@@ -45,6 +45,8 @@ def match_set(value_set):
     '''
 
     def impl(sequence):
+        if len(sequence) == 0:
+            return failed_match()
         head = sequence[0]
         if head in value_set:
             return passed_match(1, (head,))
@@ -52,13 +54,15 @@ def match_set(value_set):
     return impl
 
 
-def match_all(seq):
+def match_all(sequence):
     '''
     Matches against the entire sequence and passes it to the predicate.
     May also be used in conjunction with `nop` to exhaust the parser.
     '''
 
-    return passed_match(len(seq), (seq,))
+    if len(sequence) == 0:
+        return failed_match()
+    return passed_match(len(sequence), (sequence,))
 
 
 def match_head(value):
@@ -67,6 +71,8 @@ def match_head(value):
     '''
 
     def impl(sequence):
+        if len(sequence) == 0:
+            return failed_match()
         head = sequence[0]
         if head == value:
             return passed_match(1, (head,))
@@ -82,6 +88,8 @@ def match_seq(values):
 
     values_len = len(values)
     def impl(sequence):
+        if len(sequence) < values_len:
+            return failed_match()
         sub_sequence = sequence[:values_len]
         if sub_sequence == values:
             return passed_match(values_len, (sub_sequence,))
@@ -101,6 +109,8 @@ def match_rex(expr):
 
     rex = re.compile(expr)
     def impl(sequence):
+        if len(sequence) == 0:
+            return failed_match()
         result = rex.match(sequence)
         if result:
             return passed_match(result.end(), result.groups(), result.groupdict())

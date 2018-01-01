@@ -40,3 +40,14 @@ def rule_fail(message):
     def impl(sequence):
         raise ParseException(message)
     return impl
+
+
+def rule_end(sequence):
+    '''
+    Distinct state that signals the end of the grammar.  Matches only on the
+    very end of the parsed sequence.
+    '''
+
+    if len(sequence) == 0:
+        return passed_rule(0, None)
+    return failed_rule()

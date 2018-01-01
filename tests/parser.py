@@ -4,6 +4,7 @@ import unittest
 import copy
 from oxeye.parser import *
 from oxeye.match import *
+from oxeye.rule import *
 from tests.helpers import *
 
 # TODO: test parser continuation
@@ -74,6 +75,31 @@ class TestParserCompile(unittest.TestCase):
                 'foo': [ (12345, lambda x: None, 'foo'), ]
             })
         self.assertEquals(ctx.exception.message, 'Rule match function must compile to a callable object')
+
+    def test_implicit_end(self):
+        p = Parser({
+            'goal': (
+                (match_seq('foobar'), nop, EndState),
+            ),
+        })
+        p.parse('foobar')
+
+    def test_explicit_end(self):
+        p = Parser({
+            'goal': (
+                (match_seq('foobar'), nop, 'goal'),
+                rule_end,
+            ),
+        })
+        p.parse('foobar')
+
+    def test_custom_end(self):
+        p = Parser({
+            'goal': (
+                (match_seq('foobar'), nop, 'end'),
+            ),
+        }, end_state='end')
+        p.parse('foobar')
 
 
 class TestParserError(unittest.TestCase):
@@ -163,7 +189,8 @@ class TestMatchFunction(unittest.TestCase):
                 (match_seq(['foo', 'bar']), result_pred, 'all'),
             ),
             'all': (
-                (match_all, all_pred, None),
+                (match_all, all_pred, 'all'),
+                rule_end,
             ),
         }, 'all')
      

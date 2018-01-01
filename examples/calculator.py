@@ -3,7 +3,7 @@ from __future__ import unicode_literals, absolute_import
 from oxeye.token import Token, TokenParser, TokenLexer
 from oxeye.parser import Parser, RexParser, nop, err
 from oxeye.match import match_rex
-from oxeye.rule import rule_next, rule_fail
+from oxeye.rule import rule_next, rule_fail, rule_end
 
 class AST(object):
     '''
@@ -102,6 +102,7 @@ class RexCalculator(RexParser):
                 (r'\*', self.ast.mul, 'expression'),
                 (r'/', self.ast.div, 'expression'),
                 (r'\)', self.ast.pop_expr, 'operation'),
+                rule_end,
                 rule_fail('Expected numeric operation'),
             ),
         }, start_state='expression')
@@ -143,6 +144,7 @@ class Lexer(TokenLexer):
                     '\n': (self._newline, 'goal'),
                 },
                 (match_rex(r'(\d+(?:\.\d+)?)'), self._token_as(tok_number), 'goal'),
+                rule_end,
                 rule_fail('unexpected token'),
             ),
         })
@@ -183,6 +185,7 @@ class TokenCalculator(TokenParser):
                     '/': (self.ast.div, 'expression'),
                     ')': (self.ast.pop_expr, 'operation'),
                 },
+                rule_end,
                 rule_fail('Expected numeric operation'),
             ),
         }, start_state='expression')
