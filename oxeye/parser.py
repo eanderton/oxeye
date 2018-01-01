@@ -123,8 +123,8 @@ class Parser(object):
         match_fn = self._compile_match(match_tok)
         if not callable(match_fn):
             raise CompileError(self, 'Rule match function must compile to a callable object')
-        def impl(tokens):
-            match_success, advance, predicate_args, predicate_kwargs = match_fn(tokens)
+        def impl(sequence):
+            match_success, advance, predicate_args, predicate_kwargs = match_fn(sequence)
             if match_success:
                 predicate_fn(*predicate_args, **predicate_kwargs)
                 return passed_rule(advance, next_state)
@@ -200,7 +200,9 @@ class Parser(object):
 
         The `exhaustive` argument is set to True by default.  The parser will
         raise ParseError if it cannot match a rule against the sequence in the
-        current state.
+        current state. Exhaustive grammars must also match an `end` token as
+        the last part of the grammar, as to ensure that the input completely
+        matches the grammar.  See `oxeye.match.rule_end` for more information.
 
         Passing `sequence` will parse against the provided sequence, starting
         at the current position and state.
@@ -212,9 +214,9 @@ class Parser(object):
         sequence instead of the current position.
         '''
 
-        self._state = state or self._state
-        self._pos = position or self._pos
-        self._seq = sequence or self._seq
+        self._state = state if state is not None else self._state
+        self._pos = position if position is not None else self._pos
+        self._seq = sequence if sequence is not None else self._seq
         
         # walk through the state machine starting at state+pos+sequence
         while self._pos < len(self._seq):
@@ -237,8 +239,9 @@ class Parser(object):
             return True
 
         # match 'end' token (empty sequence) in current state
+        end_token = self._seq[0:0]
         for rule_fn in self.spec[self._state]:
-            success, _, next_state = rule_fn([])
+            success, _, next_state = rule_fn(end_token)
             if success:
                 return True
         raise ParseError('No match found at end of input')

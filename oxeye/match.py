@@ -109,8 +109,6 @@ def match_rex(expr):
 
     rex = re.compile(expr)
     def impl(sequence):
-        if len(sequence) == 0:
-            return failed_match()
         result = rex.match(sequence)
         if result:
             return passed_match(result.end(), result.groups(), result.groupdict())
