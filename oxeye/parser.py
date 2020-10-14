@@ -80,8 +80,26 @@ class Parser(object):
         }
         self._start_state = start_state
 	self._state_refs = {}
+        self.add_specification(spec, self)
+        self.reset()
 
-        # main processing loop
+    def _resolve_predicate(self, pred):
+        if callable(pred):
+            return pred
+        if hasattr(self._context, pred):
+            return getattr(self._context, pred)
+        raise CompileError('Cannot resolve predicate "{}"; is neither callable nor an attribute'.format(pred))
+
+    def add_specification(self, spec, context=None):
+        '''
+        Adds specification data to the parser.  May be called more than once to add
+        additional parse states, and/or override existing ones.
+
+        The context may be set for string predicate resolution.  This is useful for 
+        spec code management where the context object may be declared in a
+        different scope than the spec itself.
+        '''
+        self._context = context or self
         for self._state, tests in spec.iteritems():
             self.spec[self._state] = []
             for self._rule in range(len(tests)):
@@ -89,8 +107,7 @@ class Parser(object):
                 if not callable(rule):
                     raise CompileError(self, 'Rule must compile to a callable object')
                 self.spec[self._state].append(rule)
-        self.reset()
-
+        self._context = None # reset context
 
     @singledispatch
     def _compile_rule(self, rule):
@@ -119,8 +136,9 @@ class Parser(object):
         tuple as a result.
         '''
 
-        match_tok, predicate_fn, next_state = rule
+        match_tok, predicate, next_state = rule
         match_fn = self._compile_match(match_tok)
+        predicate_fn = self._resolve_predicate(predicate)
         if not callable(match_fn):
             raise CompileError(self, 'Rule match function must compile to a callable object')
         def impl(sequence):
@@ -145,7 +163,8 @@ class Parser(object):
             head = sequence[0]
             rule = rule_dict.get(head, None)
             if rule:
-                predicate_fn, next_state = rule
+                predicate, next_state = rule
+                predicate_fn = self._resolve_predicate(predicate)
                 predicate_fn(head)
                 return passed_rule(1, next_state)
             return failed_rule()

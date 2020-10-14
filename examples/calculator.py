@@ -8,7 +8,8 @@ contrast the variety of approches enabled by Oxeye.
 from __future__ import unicode_literals, absolute_import
 
 from oxeye.token import Token, TokenParser, TokenLexer
-from oxeye.parser import Parser, RexParser, nop, err
+from oxeye.parser import Parser, RexParser
+from oxeye.pred import nop
 from oxeye.match import match_rex
 from oxeye.rule import rule_next, rule_fail, rule_end
 

@@ -26,6 +26,8 @@ def match_any(sequence):
     Matches any head element on sequence.
     '''
 
+    if len(sequence) == 0:
+        return failed_match()
     return passed_match(1, (sequence[0],))
 
 
@@ -35,6 +37,8 @@ def match_peek(sequence):
     conjunction with `nop` to move the parser to a different state.
     '''
 
+    if len(sequence) == 0:
+        return failed_match()
     return passed_match(0, (sequence[0],))
 
 
