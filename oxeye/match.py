@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
+'''
+Matching functions for parse rules.
+'''
 
-from __future__ import unicode_literals, absolute_import
 import re
 
 
@@ -44,7 +46,7 @@ def match_peek(sequence):
 
 def match_set(value_set):
     '''
-    Matches if a token matches any one value in `value_set`, by using the `in` 
+    Matches if a token matches any one value in `value_set`, by using the `in`
     operator.  The `value_set` may be any object that implements `__in__`.
     '''
 
@@ -106,7 +108,7 @@ def match_rex(expr):
     Match function that matches a regular expression against multiple character
     tokens.  The resulting groups and groupdict are passed to the predicate
     as *args and **kwargs, respectively, if there's a match.
- 
+
     NOTE: will only work with sequeneces of type 'str' and 'unicode', as the entire
     sequence is passed directly to a compiled regex type (see `re` library).
     '''

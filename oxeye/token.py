@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 '''
-Oxeye Parser library for Token-based implementations. 
+Oxeye Parser library for Token-based implementations.
 '''
-
-from __future__ import unicode_literals, absolute_import
 
 from oxeye.multimethods import enable_descriptor_interface, singledispatch
 from oxeye.multimethods_ext import Callable
@@ -47,8 +45,8 @@ class Token(object):
         return self.name.__hash__()
 
     def __eq__(self, other):
-        ''' 
-        Override to allow for hashing of this type, as well as equality with 
+        '''
+        Override to allow for hashing of this type, as well as equality with
         string types.  Equates `self.name` to other token names or string contents.
         '''
 
@@ -88,7 +86,7 @@ class TokenParser(Parser):
         '''
 
         return self.head.line if self.head and hasattr(self.head, 'line') else None
-    
+
     @property
     def column(self):
         '''
@@ -115,7 +113,7 @@ class TokenLexer(Parser, PositionMixin):
         super(TokenLexer, self).reset()
         self._reset_position()
         self._tokens = []
-    
+
     def _token(self, value, token_type=Token):
         '''
         Predicate function that creates a new token of the given type for `value`.

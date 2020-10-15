@@ -5,8 +5,6 @@ and lexer+parser based implementation are both provided to
 contrast the variety of approches enabled by Oxeye.
 '''
 
-from __future__ import unicode_literals, absolute_import
-
 from oxeye.token import Token, TokenParser, TokenLexer
 from oxeye.parser import Parser, RexParser
 from oxeye.pred import nop
@@ -85,7 +83,7 @@ class ASTManager(object):
 
 class RexCalculator(RexParser):
     '''
-    Example of a calculator that uses the RexParser as a basis for parsing.  
+    Example of a calculator that uses the RexParser as a basis for parsing.
     All terminals and whitespace elimination are handled in the same pass,
     and matched explicitly using regular expressions.
     '''
@@ -126,14 +124,14 @@ class RexCalculator(RexParser):
         return self.ast.root
 
 
-# Token representing number values. 
+# Token representing number values.
 tok_number = Token('number')
 
 class Lexer(TokenLexer):
     '''
     Lexer for TokenCalculator.  Seralizes a text stream into a list of tokens.
-    Line and column information is gathered and attached to tokens as they are 
-    generated. 
+    Line and column information is gathered and attached to tokens as they are
+    generated.
     '''
 
     def __init__(self):
@@ -166,9 +164,9 @@ class TokenCalculator(TokenParser):
     stream from the provided text.
 
     The tokenizer culls out whitespace, while converting numbers to discrete tokens.
-    This allows the parser to express a grammar that is focuses on everything else. 
+    This allows the parser to express a grammar that is focuses on everything else.
 
-    Additionally, line and column information is made available via `status`, as 
+    Additionally, line and column information is made available via `status`, as
     the token sequence has that information built-in.
     '''
 
@@ -202,7 +200,7 @@ class TokenCalculator(TokenParser):
     def reset(self):
         super(TokenCalculator, self).reset()
         self.ast.reset()
- 
+
     def parse(self, text):
         lexer = Lexer()
         lexer.parse(text)
@@ -218,6 +216,6 @@ if __name__ == '__main__':
         sys.exit(1)
 
     expr = sys.argv[1]
-    print 'Regular Expression Result: ', RexCalculator().parse(expr).eval()
-    print 'Tokenzied Result: ', TokenCalculator().parse(expr).eval()
+    print('Regular Expression Result: ', RexCalculator().parse(expr).eval())
+    print('Tokenzied Result: ', TokenCalculator().parse(expr).eval())
     sys.exit(0)

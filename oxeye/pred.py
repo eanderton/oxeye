@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
-
-from __future__ import unicode_literals, absolute_import
-
+'''
+Standard predicates used for building grammars.
+'''
 
 def nop(*args, **kwargs):
     '''
     Predicate function that does nothing. Intended for do-nothing terminals in a DFA spec.
     '''
-    pass 
+    pass
 
 
 def err(message):

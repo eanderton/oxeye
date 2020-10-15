@@ -4,11 +4,10 @@ Oxeye Parser library.  Provides utility classes and functions for constructing
 discrete state machines for parsing text or a token stream.
 '''
 
-from __future__ import unicode_literals, absolute_import
-
 import re
 from oxeye.multimethods import enable_descriptor_interface, singledispatch
 from oxeye.multimethods_ext import Singleton, Callable, String
+from oxeye.exception import *
 from oxeye.match import match_head, match_rex
 from oxeye.rule import failed_rule, passed_rule, rule_end
 from oxeye.pred import *
@@ -16,33 +15,11 @@ from oxeye.pred import *
 enable_descriptor_interface()
 
 
-class ParseError(Exception):
-    '''
-    Base error type for parse related errors.  May optionally include a nested
-    exception if another exception was the cause for the error.
-
-    See the parser `status` property for additional error context.
-    '''
-    pass
-
-
-class CompileError(Exception):
-    '''
-    Error type for compilation-based errors.
-    
-    See the parser `status` property for additional error context.
-    '''
-    def __init__(self, parser, *args, **kwargs):
-        super(CompileError, self).__init__(*args, **kwargs)
-        self.parser = parser
-
-
 class _EndState(Singleton):
     '''
     Representation of an 'end state' for a Parser.  Implemented
     as a singleton to avoid issues with cross-module imports.
     '''
-
     pass
 
 
@@ -52,23 +29,23 @@ EndState = _EndState()
 class Parser(object):
     '''
     Core parser class.  Implements a token based parser based on a provided parser
-    specification (`spec`).  The parser operates on an input set of tokens, that 
+    specification (`spec`).  The parser operates on an input set of tokens, that
     may be any indexable type, including `str` or `unicode`.
 
     '''
-    
+
     _status_keys = ['pos', 'head', 'state', 'rule']
 
 
     def __init__(self, spec, start_state='goal', end_state=_EndState()):
         '''
-        Parser constructor.  Builds a parser around the `spec` state machine that 
+        Parser constructor.  Builds a parser around the `spec` state machine that
         is a dictionary of state to rule-set mappings.  An optional `start_state`
         may be specified if 'goal' isn't a valid state in the provided spec.
 
         The parser specification is compiled into a series of closure functions by
-        way of type-matching   Tuples, Dicts, and callables are valid 
-        rule types, each with their own special use cases and idioms.  The set of 
+        way of type-matching   Tuples, Dicts, and callables are valid
+        rule types, each with their own special use cases and idioms.  The set of
         supported dispatch types may be expanded by augmenting or extending these
         multimethods.
 
@@ -79,7 +56,7 @@ class Parser(object):
             end_state: [ rule_end ],
         }
         self._start_state = start_state
-	self._state_refs = {}
+        self._state_refs = {}
         self.add_specification(spec, self)
         self.reset()
 
@@ -95,7 +72,7 @@ class Parser(object):
         Adds specification data to the parser.  May be called more than once to add
         additional parse states, and/or override existing ones.
 
-        The context may be set for string predicate resolution.  This is useful for 
+        The context may be set for string predicate resolution.  This is useful for
         spec code management where the context object may be declared in a
         different scope than the spec itself.
         '''
@@ -125,14 +102,14 @@ class Parser(object):
         to simply pass-through to the compiled output.
         '''
         return rule
-        
+
 
     @_compile_rule.method(list)
     @_compile_rule.method(tuple)
     def _compile_tuple_rule(self, rule):
         '''
         Compiler dispatch function for tuple-based rules.  Returns a function
-        that processes zero or more tokens, and returns a passed/failed rule 
+        that processes zero or more tokens, and returns a passed/failed rule
         tuple as a result.
         '''
 
@@ -153,7 +130,7 @@ class Parser(object):
     def _compile_dict_rule(self, rule_dict):
         '''
         Compiler dispatch function for dict-based rules.  Returns a function
-        that processes zero or more tokens, and returns a passed/failed rule 
+        that processes zero or more tokens, and returns a passed/failed rule
         tuple as a result.
         '''
 
@@ -178,7 +155,7 @@ class Parser(object):
         '''
 
         raise CompileError(self, 'Match expression "{}" is not callable'.format(value))
-    
+
     @_compile_match.method(Callable)
     def _compile_match_callable(self, fn):
         '''
@@ -214,7 +191,7 @@ class Parser(object):
         Returns True if the sequence was entirely parsed (exhausted), False if not.
 
         The default state, position, and sequence, in a newly constructed parser
-        are set to `start_state`, `0`, and `[]` respectively.  Additionally, these 
+        are set to `start_state`, `0`, and `[]` respectively.  Additionally, these
         are guaranteed by any call to `reset()`.
 
         The `exhaustive` argument is set to True by default.  The parser will
@@ -226,7 +203,7 @@ class Parser(object):
         Passing `sequence` will parse against the provided sequence, starting
         at the current position and state.
 
-        Passing `state` will start the parse at the provided state instead of 
+        Passing `state` will start the parse at the provided state instead of
         the current state.
 
         Passing `position` will start the parse at the provided position in the
@@ -236,7 +213,7 @@ class Parser(object):
         self._state = state if state is not None else self._state
         self._pos = position if position is not None else self._pos
         self._seq = sequence if sequence is not None else self._seq
-        
+
         # walk through the state machine starting at state+pos+sequence
         while self._pos < len(self._seq):
             self._rule = 0
@@ -249,11 +226,11 @@ class Parser(object):
                     break
                 self._rule += 1
             else:
-                if exhaustive:  
+                if exhaustive:
                     raise ParseError('No match found')
                 return False
 
-        # exit the state machine, and avoid 'end' matching 
+        # exit the state machine, and avoid 'end' matching
         if not exhaustive:
             return True
 
@@ -336,7 +313,7 @@ class PositionMixin(object):
 
     Integration will require calling the mixin methods directly
     from the desired points in the child class.  Two predicate
-    functions, `_whitespace` and `_newline` are provided to 
+    functions, `_whitespace` and `_newline` are provided to
     allow a suitably configured grammar to manipulate the current
     line and column positions appropriately.
 
@@ -352,7 +329,7 @@ class PositionMixin(object):
 
     def _reset_position(self):
         '''
-            Resets the line and column 
+            Resets the line and column
         '''
 
         self._line = 1
@@ -380,7 +357,7 @@ class PositionMixin(object):
         '''
 
         return self._line
-    
+
     @property
     def column(self):
         '''

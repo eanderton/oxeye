@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 ''' Multimethods
 
 An implementation of multimethods for Python, heavily influenced by
@@ -49,7 +48,7 @@ class _FeatureFlag(object):
 
     def __bool__(self):
         return self.value
-    
+
     def __nonzero__(self):
         return self.__bool__()
 
@@ -97,12 +96,12 @@ class DispatchException(Exception):
 
 class _MultiMethodProxy(object):
     '''
-    Shim designed for use by MultiMethod.__get__, so MultiMethod may implement the 
+    Shim designed for use by MultiMethod.__get__, so MultiMethod may implement the
     'descriptor' protocol.
-    
-    When a method is invoked, the class' __get__ method is called to return a 'bound function' 
-    that is tied to the current object instance.  This proxy simulates a bound function 
-    multimethod by forwarding all properties to the parent MultiMethod, and re-implementing 
+
+    When a method is invoked, the class' __get__ method is called to return a 'bound function'
+    that is tied to the current object instance.  This proxy simulates a bound function
+    multimethod by forwarding all properties to the parent MultiMethod, and re-implementing
     __call__ such that it provides the object instance as 'self' to the best-matched function.
     '''
 
@@ -249,7 +248,7 @@ def multimethod(dispatch_func, pass_self=_descriptor_interface_feature):
     default_func (its module and name).
 
     If pass_self is set to True, this multimethod will pass the enclosing
-    object instance as `self` to all associated methods, as though they 
+    object instance as `self` to all associated methods, as though they
     were normal class methods (where applicable).
     '''
     def multi_decorator(default_func):
@@ -278,7 +277,7 @@ def multidispatch(default_func):
     '''Create a multimethod that does multiple dispatch by the types of
     all the arguments. The wrapped function will be the default
     dispatch.
-    
+
     In order to use class methods that use 'self' passing with this decorator,
     see `enable_descriptor_interface()` for more information.
     '''

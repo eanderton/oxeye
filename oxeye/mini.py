@@ -7,7 +7,7 @@ vendored (cut-and-paste) into another program, which may be
 desireable over an entire module install and import.
 
 If `oxeye.mini.parse` is too limiting, please see
-`oxeye.parser.Parser` for a more feature-rich approach to this 
+`oxeye.parser.Parser` for a more feature-rich approach to this
 style of state machine.
 
 >>> text = """
@@ -17,7 +17,7 @@ style of state machine.
 ... Also not comment text
 ... # world
 ... """
->>> nop = lambda: None 
+>>> nop = lambda: None
 >>> comments = []
 >>> parse({
 ...     'goal': (
@@ -25,36 +25,34 @@ style of state machine.
 ...         ('.*\\n', nop, 'goal'),
 ...     ),
 ... }, text)
-(u'goal', 68)
+('goal', 68)
 
->>> print comments
-[u'hello', u'commented', u'world']
+>>> print(comments)
+['hello', 'commented', 'world']
 
 '''
-
-from __future__ import unicode_literals, absolute_import
 
 import re
 
 
 def parse(spec, text, state='goal', pos=0):
     '''
-    This function processes `text` against `spec` state-machine 
-    specification, starting at the specified `state` and optional `pos` 
-    in text.  
-    
-    The parser runs to exhaustion, or when no more states can be 
-    matched.  Upon exhausting `test`, a status `(state, pos)` tuple 
-    for the current state and position is returned. 
+    This function processes `text` against `spec` state-machine
+    specification, starting at the specified `state` and optional `pos`
+    in text.
+
+    The parser runs to exhaustion, or when no more states can be
+    matched.  Upon exhausting `test`, a status `(state, pos)` tuple
+    for the current state and position is returned.
 
     The spec is a dictionary of state to rule list mappings, where each
-    rule is a `(regular_expression, predicate_function, next_state_)`, 
+    rule is a `(regular_expression, predicate_function, next_state_)`,
     tuple.
 
     When a regular expression is matched, the match groups are passed
     as `*args`, and the named matches as `**kwargs`, to the predicate
     function.
-    
+
     See `oxeye.pred` for predicate function examples to use with this
     parser.
     '''

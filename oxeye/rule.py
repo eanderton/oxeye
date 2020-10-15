@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
+'''
+Standard rules for building grammars.
+'''
 
-from __future__ import unicode_literals, absolute_import
+from oxeye.exception import ParseError
 
 
 def failed_rule():
@@ -35,10 +38,10 @@ def rule_next(state):
 def rule_fail(message):
     '''
     Returns a rule function that throws a ParseError with the provided message.
-    ''' 
+    '''
 
     def impl(sequence):
-        raise ParseException(message)
+        raise ParseError(message)
     return impl
 
 
