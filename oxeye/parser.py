@@ -77,7 +77,7 @@ class Parser(object):
         different scope than the spec itself.
         '''
         self._context = context or self
-        for self._state, tests in spec.iteritems():
+        for self._state, tests in spec.items():
             self.spec[self._state] = []
             for self._rule in range(len(tests)):
                 rule = self._compile_rule(tests[self._rule])

@@ -114,6 +114,10 @@ class TokenLexer(Parser, PositionMixin):
         self._reset_position()
         self._tokens = []
 
+    def _error(self, position, state, tokens, msg, nested):
+        msg = '({}, {}) {}'.format(self.line, self.column, msg)
+        raise ParseError(position, state, tokens, msg, nested)
+
     def _token(self, value, token_type=Token):
         '''
         Predicate function that creates a new token of the given type for `value`.

@@ -69,4 +69,4 @@ def _is_a_string(x, y):
     '''
     Multimethod that allows `String` to be used on type dispatch with 
     '''
-    return x is str or x is unicode
+    return x is str # TODO: refactor # or x is unicode

@@ -1,5 +1,3 @@
-from __future__ import unicode_literals, absolute_import
-
 import unittest
 from tests.helpers import *
 from oxeye.parser import ParseError
