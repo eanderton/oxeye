@@ -1,5 +1,3 @@
-from __future__ import unicode_literals, absolute_import
-
 import unittest
 from oxeye.token import Token, TokenParser, TokenLexer
 from oxeye.pred import nop

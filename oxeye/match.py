@@ -122,12 +122,12 @@ def match_rex(expr):
     return impl
 
 
-def match_end():
+def match_end(sequence):
     '''
     Match the end of the grammar.
 
     Used to write closed grammars that may run with exhaustive=True.
     '''
-    def impl(sequence):
-        return len(sequence) == 0
-    return impl
+    if len(sequence) == 0:
+        return passed_match(0)
+    return failed_match()

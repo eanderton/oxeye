@@ -5,14 +5,14 @@ discrete state machines for parsing text or a token stream.
 '''
 
 import re
-from oxeye.multimethods import enable_descriptor_interface, singledispatch
-from oxeye.multimethods_ext import Singleton, Callable, String
+from functools import singledispatchmethod
+from collections.abc import Callable
+from collections.abc import Sequence
+from pragma_utils import Singleton
 from oxeye.exception import *
 from oxeye.match import match_head, match_rex
 from oxeye.rule import failed_rule, passed_rule, rule_end
 from oxeye.pred import *
-
-enable_descriptor_interface()
 
 
 class _EndState(Singleton):
@@ -86,7 +86,7 @@ class Parser(object):
                 self.spec[self._state].append(rule)
         self._context = None # reset context
 
-    @singledispatch
+    @singledispatchmethod
     def _compile_rule(self, rule):
         '''
         Default dispatch function for compiling rules.  Raises an exception as
@@ -95,8 +95,8 @@ class Parser(object):
 
         raise CompileError(self, 'No registered method to compile rule')
 
-    @_compile_rule.method(Callable)
-    def _compile_callable_rule(self, rule):
+    @_compile_rule.register
+    def _compile_callable_rule(self, rule: Callable):
         '''
         compiler dispatch function for callable rules.  Callables are allowed
         to simply pass-through to the compiled output.
@@ -104,9 +104,8 @@ class Parser(object):
         return rule
 
 
-    @_compile_rule.method(list)
-    @_compile_rule.method(tuple)
-    def _compile_tuple_rule(self, rule):
+    @_compile_rule.register
+    def _compile_tuple_rule(self, rule: Sequence):
         '''
         Compiler dispatch function for tuple-based rules.  Returns a function
         that processes zero or more tokens, and returns a passed/failed rule
@@ -126,8 +125,8 @@ class Parser(object):
             return failed_rule()
         return impl
 
-    @_compile_rule.method(dict)
-    def _compile_dict_rule(self, rule_dict):
+    @_compile_rule.register
+    def _compile_dict_rule(self, rule_dict: dict):
         '''
         Compiler dispatch function for dict-based rules.  Returns a function
         that processes zero or more tokens, and returns a passed/failed rule
@@ -147,7 +146,7 @@ class Parser(object):
             return failed_rule()
         return impl
 
-    @singledispatch
+    @singledispatchmethod
     def _compile_match(self, value):
         '''
         Default function for compiling match functions.  Raises an exception
@@ -156,15 +155,15 @@ class Parser(object):
 
         raise CompileError(self, 'Match expression "{}" is not callable'.format(value))
 
-    @_compile_match.method(Callable)
-    def _compile_match_callable(self, fn):
+    @_compile_match.register
+    def _compile_match_callable(self, fn: Callable):
         '''
         Returns the provided match callable as a match function.
         '''
         return fn
 
-    @_compile_match.method(String)
-    def _compile_match_str(self, value):
+    @_compile_match.register
+    def _compile_match_str(self, value: str):
         '''
         Returns a match function for string values.
         '''
@@ -294,17 +293,18 @@ class RexParser(Parser):
     This parser will only accept string type sequences.
     '''
 
-    @singledispatch
+    @singledispatchmethod
     def _compile_match(self, *args, **kwargs):
         return super(RexParser, self)._compile_match(*args, **kwargs)
 
-    @_compile_match.method(String)
-    def _compile_match_rex(self, tok):
+    @_compile_match.register
+    def _compile_match_rex(self, tok: str):
         return match_rex(tok)
 
     def parse(self, sequence):
         if not isinstance(sequence, str):
             raise Exception('RexParser expects string or buffer (got {} instead)'.format(type(sequence)))
+        super().parse(sequence)
 
 
 class PositionMixin(object):

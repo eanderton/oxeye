@@ -3,12 +3,10 @@
 Oxeye Parser library for Token-based implementations.
 '''
 
-from oxeye.multimethods import enable_descriptor_interface, singledispatch
-from oxeye.multimethods_ext import Callable
+from functools import singledispatchmethod
+from collections.abc import Callable
 from oxeye.parser import Parser, ParseError, PositionMixin
 from oxeye.parser import match_head
-
-enable_descriptor_interface()
 
 
 class Token(object):
