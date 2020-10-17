@@ -11,7 +11,7 @@ class TestLexer(unittest.TestCase):
         self.lexer = Lexer()
 
     def assertLexEqual(self, a, b):
-        self.assertEqual(map(unicode, a), map(unicode, b))
+        self.assertEqual(map(str, a), map(str, b))
 
     def test_lex1(self):
         self.lexer.parse(' 10 ')
@@ -23,10 +23,10 @@ class TestLexer(unittest.TestCase):
     def test_lex2(self):
         self.lexer.parse('- 22.56 +\n*)(')
         expected = [
-            Token('-', '-', 1, 1), 
+            Token('-', '-', 1, 1),
             Token('number', '22.56', 1, 3),
-            Token('+', '+', 1, 9), 
-            Token('*', '*', 2, 1), 
+            Token('+', '+', 1, 9),
+            Token('*', '*', 2, 1),
             Token(')', ')', 2, 2),
             Token('(', '(', 2, 3),
         ]
@@ -128,4 +128,4 @@ class TestCalculator(unittest.TestCase):
         result = -345.0
         self.assertEqual(result, self.rexCalc.parse(expr).eval())
         self.assertEqual(result, self.tokCalc.parse(expr).eval())
-        
+

@@ -35,8 +35,6 @@ class Token(object):
 
         return 'Token({}, {}, {}, {})'.format(self.name, self.value, self.line, self.column)
 
-    __unicode__ = __str__
-
     def __hash__(self):
         '''
         Override for hash magic to allow tokens to match to string names, and to
@@ -52,8 +50,6 @@ class Token(object):
 
         if isinstance(other, str):
             return str(self.name) == other
-        if isinstance(other, unicode):
-            return unicode(self.name) == other
         return self.name == other.name
 
     def __call__(self, value=None, line=0, column=0):

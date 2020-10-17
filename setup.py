@@ -27,7 +27,10 @@ setuptools.setup(
      test_suite='tests',
      install_requires=[],
      extras_require={
-        'develop': ['coverage'],
+        'develop': [
+            'pytest',
+            'coverage'
+        ],
      },
      cmdclass= {
         'develop': ExtDevelop,

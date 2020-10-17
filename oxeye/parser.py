@@ -30,7 +30,7 @@ class Parser(object):
     '''
     Core parser class.  Implements a token based parser based on a provided parser
     specification (`spec`).  The parser operates on an input set of tokens, that
-    may be any indexable type, including `str` or `unicode`.
+    may be any indexable type, including `str`.
 
     '''
 
@@ -166,7 +166,7 @@ class Parser(object):
     @_compile_match.method(String)
     def _compile_match_str(self, value):
         '''
-        Returns a match function for string and unicode values.
+        Returns a match function for string values.
         '''
         return match_head(value)
 
@@ -288,7 +288,7 @@ class RexParser(Parser):
     '''
     Parser implementation that treats all string match types as regular expressions.
 
-    Overrides the match function compilation for `str` and `unicode` and maps them
+    Overrides the match function compilation for `str` and maps them
     both to `match_rex()`.
 
     This parser will only accept string type sequences.
@@ -303,7 +303,7 @@ class RexParser(Parser):
         return match_rex(tok)
 
     def parse(self, sequence):
-        if not isinstance(sequence, str) and not isinstance(sequence, unicode):
+        if not isinstance(sequence, str):
             raise Exception('RexParser expects string or buffer (got {} instead)'.format(type(sequence)))
 
 

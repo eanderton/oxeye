@@ -109,7 +109,7 @@ def match_rex(expr):
     tokens.  The resulting groups and groupdict are passed to the predicate
     as *args and **kwargs, respectively, if there's a match.
 
-    NOTE: will only work with sequeneces of type 'str' and 'unicode', as the entire
+    NOTE: will only work with sequeneces of type 'str', as the entire
     sequence is passed directly to a compiled regex type (see `re` library).
     '''
 
