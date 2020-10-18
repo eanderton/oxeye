@@ -34,8 +34,9 @@ class TestParserCompile(OxeyeTest):
     def test_invalid_rule(self):
         with self.assertRaises(CompileError,
                 msg='No registered method to compile rule'):
+            class BadObject(object): pass
             Parser({
-                'foo': [ 'bar', ]
+                'foo': [BadObject()]
             })
 
     def test_invalid_rule_compile(self):

@@ -4,15 +4,16 @@ Oxeye Parser library.  Provides utility classes and functions for constructing
 discrete state machines for parsing text or a token stream.
 '''
 
-import re
-from functools import singledispatchmethod
 from collections.abc import Callable
 from collections.abc import Sequence
-from pragma_utils import Singleton
+from functools import singledispatchmethod
+
 from oxeye.exception import *
 from oxeye.match import match_head, match_rex
-from oxeye.rule import failed_rule, passed_rule, rule_end
 from oxeye.pred import *
+from oxeye.rule import failed_rule, passed_rule, rule_end
+
+from pragma_utils import Singleton
 
 
 class _EndState(Singleton):
@@ -36,7 +37,6 @@ class Parser(object):
 
     _status_keys = ['pos', 'head', 'state', 'rule']
 
-
     def __init__(self, spec, start_state='goal', end_state=_EndState()):
         '''
         Parser constructor.  Builds a parser around the `spec` state machine that
@@ -53,38 +53,28 @@ class Parser(object):
         '''
 
         self.spec = {
-            end_state: [ rule_end ],
+            end_state: [rule_end],
         }
         self._start_state = start_state
         self._state_refs = {}
         self.add_specification(spec, self)
         self.reset()
 
+    def _parse_error(self, message):
+        raise ParseError(message)
+
+    @singledispatchmethod
     def _resolve_predicate(self, pred):
-        if callable(pred):
-            return pred
-        if hasattr(self._context, pred):
-            return getattr(self._context, pred)
-        raise CompileError('Cannot resolve predicate "{}"; is neither callable nor an attribute'.format(pred))
+        raise CompileError(f'Cannot resolve predicate "{pred}"; is neither callable nor an attribute')
 
-    def add_specification(self, spec, context=None):
-        '''
-        Adds specification data to the parser.  May be called more than once to add
-        additional parse states, and/or override existing ones.
+    @_resolve_predicate.register
+    def _resolve_predicate_callable(self, pred: Callable):
+        return pred
 
-        The context may be set for string predicate resolution.  This is useful for
-        spec code management where the context object may be declared in a
-        different scope than the spec itself.
-        '''
-        self._context = context or self
-        for self._state, tests in spec.items():
-            self.spec[self._state] = []
-            for self._rule in range(len(tests)):
-                rule = self._compile_rule(tests[self._rule])
-                if not callable(rule):
-                    raise CompileError(self, 'Rule must compile to a callable object')
-                self.spec[self._state].append(rule)
-        self._context = None # reset context
+    @_resolve_predicate.register
+    def _resolve_predicate_attr(self, pred: str):
+        return getattr(self._context, pred)
+
 
     @singledispatchmethod
     def _compile_rule(self, rule):
@@ -98,7 +88,7 @@ class Parser(object):
                 f'No registered method to compile rule of type {rule_type}')
 
     @_compile_rule.register
-    def _compile_callable_rule(self, rule: Callable):
+    def _compile_rule_callable(self, rule: Callable):
         '''
         compiler dispatch function for callable rules.  Callables are allowed
         to simply pass-through to the compiled output.
@@ -107,7 +97,7 @@ class Parser(object):
 
 
     @_compile_rule.register
-    def _compile_tuple_rule(self, rule: Sequence):
+    def _compile_rule_tuple(self, rule: Sequence):
         '''
         Compiler dispatch function for tuple-based rules.  Returns a function
         that processes zero or more tokens, and returns a passed/failed rule
@@ -119,6 +109,7 @@ class Parser(object):
         predicate_fn = self._resolve_predicate(predicate)
         if not callable(match_fn):
             raise CompileError(self, 'Rule match function must compile to a callable object')
+        
         def impl(sequence):
             match_success, advance, predicate_args, predicate_kwargs = match_fn(sequence)
             if match_success:
@@ -128,7 +119,7 @@ class Parser(object):
         return impl
 
     @_compile_rule.register
-    def _compile_dict_rule(self, rule_dict: dict):
+    def _compile_rule_dict(self, rule_dict: dict):
         '''
         Compiler dispatch function for dict-based rules.  Returns a function
         that processes zero or more tokens, and returns a passed/failed rule
@@ -182,9 +173,30 @@ class Parser(object):
         self._seq = []
         self._rule = 0
 
+    def add_specification(self, spec, context=None):
+        '''
+        Adds specification data to the parser.  May be called more than once to add
+        additional parse states, and/or override existing ones.
+
+        The context may be set for string predicate resolution.  This is useful for
+        spec code management where the context object may be declared in a
+        different scope than the spec itself.
+        '''
+
+        self._context = context or self
+        for spec_state, tests in spec.items():
+            self.spec[spec_state] = []
+            for ii in range(len(tests)):
+                rule = self._compile_rule(tests[ii])
+                if not callable(rule):
+                    raise CompileError(self,
+                            f'Rule #{ii} of state {spec_state} must compile to a callable object')
+                self.spec[spec_state].append(rule)
+        self._context = None  # reset context
+
     def parse(self, sequence=None, state=None, position=0, exhaustive=True):
         '''
-        Parses a sequence of elements, using the curent state machine configuration.
+        Parses a sequence of elements, using the current state machine configuration.
         Each parameter overrides an aspect of this state, allowing for partial
         parse passes, starting from an alternate state or position, and running
         the parser to exhaustion.
@@ -228,7 +240,7 @@ class Parser(object):
                 self._rule += 1
             else:
                 if exhaustive:
-                    raise ParseError('No match found')
+                    self._parse_error('No match found')
                 return False
 
         # exit the state machine, and avoid 'end' matching
@@ -241,7 +253,7 @@ class Parser(object):
             success, _, next_state = rule_fn(end_token)
             if success:
                 return True
-        raise ParseError('No match found at end of input')
+        self._parse_error('No match found at end of input')
 
     @property
     def pos(self):
@@ -282,7 +294,7 @@ class Parser(object):
         with `str.format()` as kwargs.
         '''
 
-        return { x: getattr(self, x) for x in self._status_keys }
+        return {x: getattr(self, x) for x in self._status_keys}
 
 
 class RexParser(Parser):
@@ -303,12 +315,11 @@ class RexParser(Parser):
     def _compile_match_rex(self, tok: str):
         return match_rex(tok)
 
-    def parse(self, sequence):
+    def parse(self, sequence=None, state=None, position=0, exhaustive=True):
         if not isinstance(sequence, str):
             seq_type = type(sequence)
-            raise ParseError(
-                    f'RexParser expects string or buffer (got {seq_type} instead)')
-        super().parse(sequence)
+            self._parse_error(f'RexParser expects string or buffer (got {seq_type} instead)')
+        super().parse(sequence, state, position, exhaustive)
 
 
 class PositionMixin(object):
@@ -325,7 +336,7 @@ class PositionMixin(object):
     >>>     _status_keys = Parser._status_keys + PositionMixin._position_status_keys
     >>>
     >>>     def reset(self):
-    >>>         result = super(MyParser, self).reset()
+    >>>         result = super().reset()
     >>>         self._reset_position
     '''
 
@@ -339,7 +350,7 @@ class PositionMixin(object):
         self._line = 1
         self._column = 1
 
-    def _whitespace(self, value):
+    def _next(self, value):
         '''
         Predicate function that increments the column count by value
         '''

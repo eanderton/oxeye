@@ -74,7 +74,7 @@ class TestToken(unittest.TestCase):
 class TestTokenLexer(unittest.TestCase):
     def test_status(self):
         def ws(value):
-            p._whitespace(value)
+            p._next(value)
 
         def newline(value):
             p._newline(value)

@@ -8,16 +8,6 @@ import contextlib
 import sys
 
 
-@contextlib.contextmanager
-def test_context(**context_vars):
-    ''' Context manager support for variables used in tests
-    '''
-    try:
-        yield
-    except:
-        sys.stderr.write('CONTEXT: {}\n'.format(str(context_vars)))
-        raise
-
 class OxeyeTest(unittest.TestCase):
     def setUp(self):
         self.maxDiff = None  # show everything on failure

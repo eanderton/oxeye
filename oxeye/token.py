@@ -3,6 +3,7 @@
 Oxeye Parser library for Token-based implementations.
 '''
 
+import copy
 from functools import singledispatchmethod
 from collections.abc import Callable
 from oxeye.parser import Parser, ParseError, PositionMixin
@@ -32,6 +33,8 @@ class Token(object):
         '''
 
         return 'Token({}, {}, {}, {})'.format(self.name, self.value, self.line, self.column)
+
+    __repl__ = __str__
 
     def __hash__(self):
         '''
@@ -65,9 +68,10 @@ class TokenParser(Parser):
 
     _status_keys = Parser._status_keys + ['line', 'column']
 
+    #_compile_match = copy.deepcopy(Parser._compile_match)
     @singledispatchmethod
     def _compile_match(self, *args, **kwargs):
-        return super(TokenParser, self)._compile_match(*args, **kwargs)
+        return super()._compile_match(*args, **kwargs)
 
     @_compile_match.register
     def _compile_match_token(self, tok: Token):
@@ -99,18 +103,27 @@ class TokenLexer(Parser, PositionMixin):
 
     _status_keys = Parser._status_keys + PositionMixin._position_status_keys
 
+    def _parse_error(self, message):
+        super()._parse_error(f'({self._line}, {self._column}) {message}')
+
+    @singledispatchmethod
+    def _resolve_predicate(self, *args, **kwargs):
+        return super()._resolve_predicate(*args, **kwargs)
+
+    @_resolve_predicate.register
+    def _resolve_predicate_token(self, pred: Token):
+        def impl(value):
+            return self._token(value, pred)
+        return impl
+
     def reset(self):
         '''
         Override that resets Lexer properties as well as base class properties.
         '''
 
-        super(TokenLexer, self).reset()
+        super().reset()
         self._reset_position()
         self._tokens = []
-
-    def _error(self, position, state, tokens, msg, nested):
-        msg = '({}, {}) {}'.format(self.line, self.column, msg)
-        raise ParseError(position, state, tokens, msg, nested)
 
     def _token(self, value, token_type=Token):
         '''
@@ -119,15 +132,6 @@ class TokenLexer(Parser, PositionMixin):
 
         self._tokens.append(token_type(value, line=self._line, column=self._column))
         self._column += len(value)
-
-    def _token_as(self, token_type):
-        '''
-        Returns a predicate function that wraps `_token()` with a specified Token type.
-        '''
-
-        def impl(value):
-            return self._token(value, token_type)
-        return impl
 
     @property
     def tokens(self):
