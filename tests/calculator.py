@@ -1,7 +1,8 @@
+# -*- coding: utf-8 -*-
 import unittest
-from tests.helpers import *
 from oxeye.parser import ParseError
 from oxeye.token import Token
+from oxeye.testing import *
 from examples.calculator import Lexer, RexCalculator, TokenCalculator
 
 
@@ -10,15 +11,12 @@ class TestLexer(unittest.TestCase):
         self.maxDiff = None  # show everything on failure
         self.lexer = Lexer()
 
-    def assertLexEqual(self, a, b):
-        self.assertEqual(map(str, a), map(str, b))
-
     def test_lex1(self):
         self.lexer.parse(' 10 ')
         expected = [
             Token('number', '10', 1, 2)
         ]
-        self.assertLexEqual(self.lexer.tokens, expected)
+        self.assertEqual(self.lexer.tokens, expected)
 
     def test_lex2(self):
         self.lexer.parse('- 22.56 +\n*)(')
@@ -30,7 +28,7 @@ class TestLexer(unittest.TestCase):
             Token(')', ')', 2, 2),
             Token('(', '(', 2, 3),
         ]
-        self.assertLexEqual(self.lexer.tokens, expected)
+        self.assertEqual(self.lexer.tokens, expected)
 
 
 class TestCalculator(unittest.TestCase):

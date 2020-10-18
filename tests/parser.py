@@ -1,15 +1,20 @@
-from __future__ import unicode_literals, absolute_import
+# -*- coding: utf-8 -*-
 
+import doctest
 import unittest
 import copy
 from oxeye.parser import *
 from oxeye.match import *
 from oxeye.rule import *
-from tests.helpers import *
+from oxeye.testing import *
+
+import oxeye.parser
+doctest.testmod(oxeye.parser)
+
 
 # TODO: test parser continuation
 
-class TestParser(unittest.TestCase):
+class TestParser(OxeyeTest):
     def test_reset_custom_start(self):
         parser = Parser({}, 'foobar')
         self.assertEqual(parser._start_state, 'foobar')
@@ -25,56 +30,55 @@ class TestParser(unittest.TestCase):
         self.assertEqual(parser.state, 'goal')
 
 
-class TestParserCompile(unittest.TestCase):
+class TestParserCompile(OxeyeTest):
     def test_invalid_rule(self):
-        with self.assertRaises(CompileError) as ctx:
+        with self.assertRaises(CompileError,
+                msg='No registered method to compile rule'):
             Parser({
                 'foo': [ 'bar', ]
             })
-        self.assertEquals(ctx.exception.message, 'No registered method to compile rule')
 
     def test_invalid_rule_compile(self):
-        with self.assertRaises(CompileError) as ctx:
+        with self.assertRaises(CompileError,
+                msg='Rule must compile to a callable object'):
             class BadParser(Parser):
                 _compile_rule = copy.deepcopy(Parser._compile_rule)
-                
-                @_compile_rule.method(unicode)
-                @_compile_rule.method(str)
-                def _compile_rule_str(self, rule):
+
+                @_compile_rule.register
+                def _compile_rule_str(self, rule: str):
                     return rule  # pass-through to trigger exception
 
             BadParser({
                 'foo': [ 'bar', ]
             })
-        self.assertEquals(ctx.exception.message, 'Rule must compile to a callable object')
 
     def test_callable_rule_compile(self):
         rule = lambda x: None
         p = Parser({
             'foo': [ rule ]
         })
-        self.assertEquals(p.spec['foo'][0], rule) 
+        self.assertEqual(p.spec['foo'][0], rule)
 
     def test_invalid_match_fn(self):
-        with self.assertRaises(CompileError) as ctx:
+        with self.assertRaises(CompileError,
+                msg='Match expression "12345" is not callable'):
             Parser({
                 'foo': [ (12345, lambda x: None, 'foo'), ]
             })
-        self.assertEquals(ctx.exception.message, 'Match expression "12345" is not callable')
 
     def test_invalid_match_compile(self):
-        with self.assertRaises(CompileError) as ctx:
+        with self.assertRaises(CompileError,
+                msg='Rule match function must compile to a callable object'):
             class BadParser(Parser):
                 _compile_match = copy.deepcopy(Parser._compile_match)
-                
-                @_compile_match.method(int)
-                def _compile_rule_str(self, rule):
+
+                @_compile_match.register
+                def _compile_rule_str(self, rule: int):
                     return rule  # pass-through to trigger exception
 
             BadParser({
                 'foo': [ (12345, lambda x: None, 'foo'), ]
             })
-        self.assertEquals(ctx.exception.message, 'Rule match function must compile to a callable object')
 
     def test_implicit_end(self):
         p = Parser({
@@ -102,7 +106,7 @@ class TestParserCompile(unittest.TestCase):
         p.parse('foobar')
 
 
-class TestParserError(unittest.TestCase):
+class TestParserError(OxeyeTest):
     def setUp(self):
         def throw_fn(value):
             raise Exception('test')
@@ -114,58 +118,51 @@ class TestParserError(unittest.TestCase):
             )
         })
 
-    def test_error_ctor(self):
-        err = ParseError('foobar')
-        self.assertEqual(err.message, 'foobar')
-        
     def test_parse_error1(self):
-        with self.assertRaises(ParseError) as ctx:
+        with self.assertRaises(ParseError,
+                msg='No match found'):
             self.parser.parse('bar')
-        e = ctx.exception
-        self.assertEquals(self.parser.status, {
+        self.assertEqual(self.parser.status, {
             'pos': 0,
             'head': 'b',
             'state': 'goal',
             'rule': 2,
         })
-        self.assertEquals(e.message, 'No match found')
 
     def test_parse_error2(self):
-        with self.assertRaises(Exception) as ctx:
+        with self.assertRaises(Exception,
+                msg='test'):
             self.parser.parse('foo')
-        e = ctx.exception
-        self.assertEquals(self.parser.status, {
+        self.assertEqual(self.parser.status, {
             'pos': 0,
             'head': 'f',
             'state': 'goal',
             'rule': 0,
         })
-        self.assertEquals(e.message, 'test')
-        
+
     def test_parse_error3(self):
-        with self.assertRaises(Exception) as ctx:
+        with self.assertRaises(ParseError,
+                msg='failure'):
             self.parser.parse('baz')
-        e = ctx.exception
-        self.assertEquals(self.parser.status, {
+        self.assertEqual(self.parser.status, {
             'pos': 0,
             'head': 'b',
             'state': 'goal',
             'rule': 1,
         })
-        self.assertEquals(e.message, 'failure')
 
 
-class TestMatchFunction(unittest.TestCase):
+class TestMatchFunction(OxeyeTest):
     def setUp(self):
         self.all = None
         self.result = None
 
         def all_pred(value):
             self.all = value
- 
+
         def result_pred(value):
             self.result = value
- 
+
         self.parser = Parser({
             'any': (
                 (match_any, result_pred, 'all'),
@@ -193,49 +190,49 @@ class TestMatchFunction(unittest.TestCase):
                 rule_end,
             ),
         }, 'all')
-     
+
     def test_match_all(self):
         self.parser.parse('foobar', 'all')
-        self.assertEquals(self.all, 'foobar')
+        self.assertEqual(self.all, 'foobar')
 
     def test_match_any(self):
         self.parser.parse('foobar', 'any')
-        self.assertEquals(self.result, 'f')
-        self.assertEquals(self.all, 'oobar')
+        self.assertEqual(self.result, 'f')
+        self.assertEqual(self.all, 'oobar')
 
     def test_match_peek(self):
         self.parser.parse('foobar', 'peek')
-        self.assertEquals(self.result, 'f')
-        self.assertEquals(self.all, 'foobar')
+        self.assertEqual(self.result, 'f')
+        self.assertEqual(self.all, 'foobar')
 
     def test_match_set_digit(self):
         self.parser.parse('1234', 'range_digit')
-        self.assertEquals(self.result, '1')
-        self.assertEquals(self.all, '234')
-         
+        self.assertEqual(self.result, '1')
+        self.assertEqual(self.all, '234')
+
     def test_match_set_char(self):
         self.parser.parse('foobar', 'range_char')
-        self.assertEquals(self.result, 'f')
-        self.assertEquals(self.all, 'oobar')
+        self.assertEqual(self.result, 'f')
+        self.assertEqual(self.all, 'oobar')
 
     def test_match_set_str(self):
         self.parser.parse(['foo', 'bar'], 'range_str')
-        self.assertEquals(self.result, 'foo')
-        self.assertEquals(self.all, ['bar'])
+        self.assertEqual(self.result, 'foo')
+        self.assertEqual(self.all, ['bar'])
 
     def test_match_seq_char(self):
         self.parser.parse('foobar', 'sequence_char')
-        self.assertEquals(self.result, 'foo')
-        self.assertEquals(self.all, 'bar')
+        self.assertEqual(self.result, 'foo')
+        self.assertEqual(self.all, 'bar')
 
     def test_match_seq_str(self):
         self.parser.parse(['foo', 'bar', 'baz'], 'sequence_str')
-        self.assertEquals(self.result, ['foo', 'bar'])
-        self.assertEquals(self.all, ['baz'])
+        self.assertEqual(self.result, ['foo', 'bar'])
+        self.assertEqual(self.all, ['baz'])
 
 
-class TestRexParser(object):
+class TestRexParser(OxeyeTest):
     def test_rex_ctor_fail(self):
-        with self.assertRaises(Exception) as ctx:
-            RexParser([])
-        self.assertEquals(e.message, 'RexParser expects string or buffer (got [] instead)')
+        with self.assertRaises(ParseError,
+                msg='RexParser expects string or buffer (got [] instead)'):
+            RexParser({}).parse([])

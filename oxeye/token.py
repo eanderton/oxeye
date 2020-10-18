@@ -65,12 +65,12 @@ class TokenParser(Parser):
 
     _status_keys = Parser._status_keys + ['line', 'column']
 
-    @singledispatch
+    @singledispatchmethod
     def _compile_match(self, *args, **kwargs):
         return super(TokenParser, self)._compile_match(*args, **kwargs)
 
-    @_compile_match.method(Token)
-    def _compile_match_token(self, tok):
+    @_compile_match.register
+    def _compile_match_token(self, tok: Token):
         return match_head(tok)
 
     @property

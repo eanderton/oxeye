@@ -93,7 +93,9 @@ class Parser(object):
         no other dispatchable types were matched.
         '''
 
-        raise CompileError(self, 'No registered method to compile rule')
+        rule_type = type(rule)
+        raise CompileError(self,
+                f'No registered method to compile rule of type {rule_type}')
 
     @_compile_rule.register
     def _compile_callable_rule(self, rule: Callable):
@@ -303,7 +305,9 @@ class RexParser(Parser):
 
     def parse(self, sequence):
         if not isinstance(sequence, str):
-            raise Exception('RexParser expects string or buffer (got {} instead)'.format(type(sequence)))
+            seq_type = type(sequence)
+            raise ParseError(
+                    f'RexParser expects string or buffer (got {seq_type} instead)')
         super().parse(sequence)
 
 

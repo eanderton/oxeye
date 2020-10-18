@@ -54,22 +54,3 @@ def rule_end(sequence):
     if len(sequence) == 0:
         return passed_rule(0, None)
     return failed_rule()
-
-
-def rule_branch(tok, pass_state, fail_state):
-    '''
-    Rule function generator.
-
-    Returns success to move to a distinct state based on whether
-    or not tok matched the input sequence. Does not invoke
-    a predicate funtion.
-    '''
-
-    def impl(sequence):
-        if len(sequence) == 0:
-            return passed_rule(0, fail_state)
-        if sequence[1] == tok:
-            return passed_rule(1, pass_state)
-        return passed_rule(0, fail_state)
-
-

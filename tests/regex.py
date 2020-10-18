@@ -2,9 +2,10 @@
 
 import unittest
 from examples.regex import RegularExpression
+from oxeye.testing import *
 import json
 
-class TestRegularExpression(unittest.TestCase):
+class TestRegularExpression(OxeyeTest):
     def test_regex_ctor(self):
         rex = RegularExpression()
         rex.compile('aaa|bbb')

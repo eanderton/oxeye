@@ -31,7 +31,7 @@ setuptools.setup(
     extras_require={
        'develop': [
            'pytest',
-           'coverage'
+           'pytest-cov',
        ],
     },
     cmdclass= {

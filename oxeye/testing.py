@@ -23,12 +23,9 @@ class OxeyeTest(unittest.TestCase):
         self.maxDiff = None  # show everything on failure
         super().setUp()
 
-    def assertLexEqual(self, a, b):
-        self.assertEqual(map(str, a), map(str, b))
-
     def assertMatchPass(self, match, advance=None, args=None, kwargs=None):
-        m_state, m_advance, m_args, m_kwargs = match
-        if not m_state:
+        m_passfail, m_advance, m_args, m_kwargs = match
+        if not m_passfail:
             raise self.failureException(f'Expected passing match: {match}')
         if advance is not None and m_advance != advance:
             raise self.failureException(
@@ -41,7 +38,23 @@ class OxeyeTest(unittest.TestCase):
                     f'Match kwargs is not expected value: {m_kwargs} != {kwargs}')
 
     def assertMatchFail(self, match):
-        m_state, *_ = match
-        if m_state:
+        m_passfail, *_ = match
+        if m_passfail:
             raise self.failureException(f'Expected failing match: {match}')
+
+    def assertRulePass(self, result, advance=None, next_state=None):
+        r_passfail, r_advance, r_next_state = result
+        if not r_passfail:
+            raise self.failureException(f'Expected passing rule: {result}')
+        if advance is not None and r_advance != advance:
+            raise self.failureException(
+                    f'Rule advance is not expected value: {r_advance} != {advance}')
+        if next_state is not None and r_next_state != next_state:
+            raise self.failureException(
+                    f'Rule next state is not expected value: {r_next_state} != {next_state}')
+
+    def assertRuleFail(self, result):
+        r_passfail, *_ = result
+        if r_passfail:
+            raise self.failureException(f'Expected failing match: {result}')
 

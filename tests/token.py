@@ -1,9 +1,14 @@
+# -*- coding: utf-8 -*-
+
+import doctest
 import unittest
 from oxeye.token import Token, TokenParser, TokenLexer
 from oxeye.pred import nop
 from oxeye.rule import rule_end
-from tests.helpers import *
+from oxeye.testing import *
 
+import oxeye.token
+doctest.testmod(oxeye.token)
 
 class TestToken(unittest.TestCase):
     def test_token_ctor(self):
@@ -87,8 +92,8 @@ class TestTokenLexer(unittest.TestCase):
         })
         p.parse('foo \nbar \nbaz\ngorf', exhaustive=False)
         self.assertEqual('({line},{column})'.format(**p.status), '(3,1)')
-   
-    
+
+
 class TestTokenParser(unittest.TestCase):
     def test_match_token(self):
         result = None
@@ -104,7 +109,7 @@ class TestTokenParser(unittest.TestCase):
             ),
         })
         self.assertTrue(p.parse([Token('foo')]))
-        
+
     def test_status(self):
         p = TokenParser({
             'goal': (

@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 import doctest
-import oxeye.match
 from oxeye.match import *
 from oxeye.testing import OxeyeTest
 
+import oxeye.match
 doctest.testmod(oxeye.match)
 
 
@@ -70,26 +70,26 @@ class MatchTest(OxeyeTest):
         self.assertMatchPass(matcher('foo'), 3, ['foo'])
         self.assertMatchPass(matcher('foobar'), 3, ['foo'])
 
-    def matxh_rex(self):
+    def test_match_rex(self):
         matcher = match_rex('foo')
         self.assertMatchFail(matcher(''))
         self.assertMatchFail(matcher('x'))
-        self.assertMatchPass(matcher('foo'), 3, ['foo'])
-        self.assertMatchPass(matcher('foobar'), 3, ['foo'])
+        self.assertMatchPass(matcher('foo'), 3, [], {})
+        self.assertMatchPass(matcher('foobar'), 3, [], {})
 
         matcher = match_rex('f(oo)')
         self.assertMatchFail(matcher(''))
         self.assertMatchFail(matcher('x'))
-        self.assertMatchPass(matcher('foo'), 3, ['oo'])
-        self.assertMatchPass(matcher('foobar'), 3, ['oo'])
+        self.assertMatchPass(matcher('foo'), 3, ['oo'], {})
+        self.assertMatchPass(matcher('foobar'), 3, ['oo'], {})
 
         matcher = match_rex('f(?P<xx>oo)')
         self.assertMatchFail(matcher(''))
         self.assertMatchFail(matcher('x'))
-        self.assertMatchPass(matcher('foo'), 3, [], {'xx':'oo'})
-        self.assertMatchPass(matcher('foobar'), 3, [], {'xx':'oo'})
+        self.assertMatchPass(matcher('foo'), 3, ['oo'], {'xx':'oo'})
+        self.assertMatchPass(matcher('foobar'), 3, ['oo'], {'xx':'oo'})
 
-    def match_end(self):
+    def test_match_end(self):
         self.assertMatchPass(match_end([]))
         self.assertMatchFail(match_end(['a', 'b', 'c']))
         self.assertMatchFail(match_end('foobar'))

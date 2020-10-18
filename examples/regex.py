@@ -10,12 +10,10 @@ NOTE: This example is not intended to be used as a viable
 replacement for the `re` library.
 '''
 
-from __future__ import unicode_literals, absolute_import
-
 from oxeye.parser import Parser, ParseError
 from oxeye.match import match_any, match_seq
 from oxeye.pred import nop
-from oxeye.rule import rule_fail, rule_end, rule_next, rule_branch
+from oxeye.rule import rule_fail, rule_end, rule_next
 from functools import partial
 
 # NFA implementation: https://swtch.com/~rsc/regexp/regexp1.html
