@@ -68,7 +68,9 @@ class TokenParser(Parser):
 
     _status_keys = Parser._status_keys + ['line', 'column']
 
-    #_compile_match = copy.deepcopy(Parser._compile_match)
+    def _parse_error(self, message):
+        super()._parse_error(f'({self.line}, {self.column}) {message}')
+
     @singledispatchmethod
     def _compile_match(self, *args, **kwargs):
         return super()._compile_match(*args, **kwargs)
@@ -125,13 +127,24 @@ class TokenLexer(Parser, PositionMixin):
         self._reset_position()
         self._tokens = []
 
-    def _token(self, value, token_type=Token):
+    def _push_token(self, tok):
+        ''' Pushes a single token and sets the current line and column. '''
+        tok.line = self._line
+        tok.column = self._column
+        self._tokens.append(tok)
+
+    def _token(self, value, token_type=Token, length=None):
         '''
         Predicate function that creates a new token of the given type for `value`.
         '''
 
-        self._tokens.append(token_type(value, line=self._line, column=self._column))
-        self._column += len(value)
+        tok = token_type(value)
+        self._push_token(tok)
+
+        if length is not None:
+            self._column += length
+        else:
+            self._column += len(value)
 
     @property
     def tokens(self):

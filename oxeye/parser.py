@@ -37,7 +37,7 @@ class Parser(object):
 
     _status_keys = ['pos', 'head', 'state', 'rule']
 
-    def __init__(self, spec, start_state='goal', end_state=_EndState()):
+    def __init__(self, spec=None, start_state='goal'):
         '''
         Parser constructor.  Builds a parser around the `spec` state machine that
         is a dictionary of state to rule-set mappings.  An optional `start_state`
@@ -52,12 +52,19 @@ class Parser(object):
         See the module documentation for more information on rules.
         '''
 
-        self.spec = {
-            end_state: [rule_end],
-        }
+        # set state machine start
+        # TODO: remove
         self._start_state = start_state
-        self._state_refs = {}
-        self.add_specification(spec, self)
+
+        # set spec defaults
+        self.spec = {}
+        self.add_specification(self.generate_grammar())
+
+        # add optional specs
+        if spec:
+            self.add_specification(spec, self)
+
+        # reset parser state
         self.reset()
 
     def _parse_error(self, message):
@@ -109,7 +116,7 @@ class Parser(object):
         predicate_fn = self._resolve_predicate(predicate)
         if not callable(match_fn):
             raise CompileError(self, 'Rule match function must compile to a callable object')
-        
+
         def impl(sequence):
             match_success, advance, predicate_args, predicate_kwargs = match_fn(sequence)
             if match_success:
@@ -126,6 +133,7 @@ class Parser(object):
         tuple as a result.
         '''
 
+        # TODO: move all lookups to table outside fn
         def impl(sequence):
             if len(sequence) == 0:
                 return failed_rule()
@@ -146,7 +154,7 @@ class Parser(object):
         as no other dispatchable types were matched.
         '''
 
-        raise CompileError(self, 'Match expression "{}" is not callable'.format(value))
+        raise CompileError(self, f'Match expression "{value}" is not callable')
 
     @_compile_match.register
     def _compile_match_callable(self, fn: Callable):
@@ -162,6 +170,22 @@ class Parser(object):
         '''
         return match_head(value)
 
+    def _error(self, message):
+        '''
+        Built-in rule that passes message through to _error.
+        '''
+        def impl(sequence):
+            self._parse_error(message)
+        return impl
+
+    def generate_grammar(self):
+        '''
+        Generates the default (empty) grammar.
+        '''
+        return {
+            EndState: [rule_end],
+        }
+
     def reset(self):
         '''
         Clears any internal state, resetting the parser back to the initial
@@ -172,6 +196,8 @@ class Parser(object):
         self._pos = 0
         self._seq = []
         self._rule = 0
+        self._reset_trace_on = ['goal']
+        self._trace = []
 
     def add_specification(self, spec, context=None):
         '''
@@ -223,9 +249,13 @@ class Parser(object):
         sequence instead of the current position.
         '''
 
+        # set params or defaults
         self._state = state if state is not None else self._state
         self._pos = position if position is not None else self._pos
         self._seq = sequence if sequence is not None else self._seq
+
+        # set trace support
+        self._trace = []
 
         # walk through the state machine starting at state+pos+sequence
         while self._pos < len(self._seq):
@@ -236,6 +266,9 @@ class Parser(object):
                 if success:
                     self._pos += advance
                     self._state = next_state
+                    if next_state in self._reset_trace_on:
+                        self._trace = []
+                    self._trace.append(next_state)
                     break
                 self._rule += 1
             else:

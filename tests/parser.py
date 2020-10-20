@@ -98,14 +98,6 @@ class TestParserCompile(OxeyeTest):
         })
         p.parse('foobar')
 
-    def test_custom_end(self):
-        p = Parser({
-            'goal': (
-                (match_seq('foobar'), nop, 'end'),
-            ),
-        }, end_state='end')
-        p.parse('foobar')
-
 
 class TestParserError(OxeyeTest):
     def setUp(self):
