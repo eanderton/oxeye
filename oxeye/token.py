@@ -16,7 +16,7 @@ class Token(object):
     as parsed from a stream, with optional line and column information.
     '''
 
-    def __init__(self, name, value=None, line=0, column=0):
+    def __init__(self, name, value=None, source=None, line=0, column=0):
         '''
         Token constructor.  Specifies a token instance with a given name, value, and
         optional line and column information.
@@ -24,6 +24,7 @@ class Token(object):
 
         self.name = name
         self.value = value or name
+        self.source = source
         self.line = line
         self.column = column
 
@@ -32,7 +33,7 @@ class Token(object):
         String representation of the token.  Used for debugging.
         '''
 
-        return 'Token({}, {}, {}, {})'.format(self.name, self.value, self.line, self.column)
+        return f'Token({self.name}) {self.source} ({self.line}, {self.column}): {self.value}'
 
     __repl__ = __str__
 
@@ -53,11 +54,11 @@ class Token(object):
             return str(self.name) == other
         return self.name == other.name
 
-    def __call__(self, value=None, line=0, column=0):
+    def __call__(self, value=None, source=None, line=0, column=0):
         '''
         Returns a new token that shares the same name as self.
         '''
-        return Token(self.name, value, line, column)
+        return Token(self.name, value, source, line, column)
 
 
 class TokenParser(Parser):
@@ -69,7 +70,8 @@ class TokenParser(Parser):
     _status_keys = Parser._status_keys + ['line', 'column']
 
     def _parse_error(self, message):
-        super()._parse_error(f'({self.line}, {self.column}) {message}')
+        tok = self.head
+        super()._parse_error(f'{tok.source} ({tok.line}, {tok.column}): {message}')
 
     @singledispatchmethod
     def _compile_match(self, *args, **kwargs):
@@ -106,14 +108,23 @@ class TokenLexer(Parser, PositionMixin):
     _status_keys = Parser._status_keys + PositionMixin._position_status_keys
 
     def _parse_error(self, message):
-        super()._parse_error(f'({self._line}, {self._column}) {message}')
+        '''
+        Override that generates an error message with source, line, and column info
+        '''
+        super()._parse_error(f'{self._source} ({self._line}, {self._column}): {message}')
 
     @singledispatchmethod
     def _resolve_predicate(self, *args, **kwargs):
+        '''
+        Proxies all other predicate types to the superclass dispatch method.
+        '''
         return super()._resolve_predicate(*args, **kwargs)
 
     @_resolve_predicate.register
     def _resolve_predicate_token(self, pred: Token):
+        '''
+        Resolves a predicate for a single token value
+        '''
         def impl(value):
             return self._token(value, pred)
         return impl
@@ -126,11 +137,15 @@ class TokenLexer(Parser, PositionMixin):
         super().reset()
         self._reset_position()
         self._tokens = []
+        self._source = None
 
     def _push_token(self, tok):
-        ''' Pushes a single token and sets the current line and column. '''
+        '''
+        Pushes a single token and sets the current line and column.
+        '''
         tok.line = self._line
         tok.column = self._column
+        tok.source = self._source
         self._tokens.append(tok)
 
     def _token(self, value, token_type=Token, length=None):
@@ -153,3 +168,13 @@ class TokenLexer(Parser, PositionMixin):
         '''
 
         return self._tokens
+
+    def parse(self, sequence=None, state=None, position=0, exhaustive=True, source=None):
+        '''
+        Parses a sequence of elements.
+
+        See documentation for oxeye.parser.Parser.  This override takes an extra argument for
+        a source name.  This is used when constructing new tokens and generating error messages.
+        '''
+        self._source = source
+        super().parse(sequence, state, position, exhaustive)

@@ -12,19 +12,14 @@ doctest.testmod(oxeye.token)
 
 class TestToken(unittest.TestCase):
     def test_token_ctor(self):
-        tok = Token('foobar', 'baz', 100, 200)
+        tok = Token('foobar', 'baz', '<internal>', 100, 200)
         self.assertEqual(tok.name, 'foobar')
         self.assertEqual(tok.value, 'baz')
         self.assertEqual(tok.line, 100)
         self.assertEqual(tok.column, 200)
+        self.assertEqual(tok.source, '<internal>')
 
-    def test_factory_create(self):
-        factory = Token.factory('foobar')
-        tok = factory('bar', 100, 200)
-        self.assertEqual(tok.name, 'foobar')
-        self.assertEqual(tok.value, 'bar')
-        self.assertEqual(tok.line, 100)
-        self.assertEqual(tok.column, 200)
+        self.assertEqual(str(tok), 'Token(foobar) <internal> (100, 200): baz')
 
     def test_factory_create(self):
         foo_factory = Token('foo')
